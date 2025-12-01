@@ -1,0 +1,78 @@
+@page "/orders"
+@layout CustomerLayout
+
+<PageTitle>Đơn hàng</PageTitle>
+
+<div class="orders-container">
+    <div class="orders-header">
+        <h1>
+            <i class="bi bi-receipt me-3"></i>
+            Đơn hàng của bạn
+        </h1>
+    </div>
+
+    <div class="empty-orders">
+        <div class="empty-icon">
+            <i class="bi bi-receipt-cutoff"></i>
+        </div>
+        <h3>Chưa có đơn hàng nào</h3>
+        <p class="text-muted">Bạn chưa có đơn hàng nào. Hãy bắt đầu mua sắm ngay!</p>
+        <a href="/products" class="btn btn-success btn-lg">
+            <i class="bi bi-grid-3x3-gap-fill me-2"></i>
+            Mua sắm ngay
+        </a>
+    </div>
+</div>
+
+<style>
+    .orders-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .orders-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .orders-header h1 {
+        color: #2c3e50;
+        font-weight: 700;
+    }
+
+    .empty-orders {
+        background: white;
+        border-radius: 20px;
+        padding: 4rem 2rem;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .empty-icon {
+        font-size: 6rem;
+        color: #95a5a6;
+        margin-bottom: 1.5rem;
+    }
+
+    .empty-orders h3 {
+        color: #2c3e50;
+        margin-bottom: 1rem;
+    }
+
+    .empty-orders p {
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        border: none;
+        padding: 0.875rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+    }
+</style>
+
+@code {
+    // TODO: Load orders from API
+}

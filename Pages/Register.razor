@@ -1,0 +1,208 @@
+@page "/register"
+@layout AuthLayout
+@using BlazorApp.Dto
+@using BlazorApp.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-lg mt-4 mb-4">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold">Đăng ký tài khoản</h2>
+                        <p class="text-muted">Tạo tài khoản mới để bắt đầu mua sắm</p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>@errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+                        </div>
+                    }
+
+                    <EditForm Model="@registerRequest" OnValidSubmit="HandleRegister">
+                        <DataAnnotationsValidator />
+
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-person text-success me-1"></i>Họ và tên
+                                </label>
+                                <InputText @bind-Value="registerRequest.Name" class="form-control" 
+                                          placeholder="Nguyễn Văn A" />
+                                <ValidationMessage For="@(() => registerRequest.Name)" class="text-danger small" />
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-envelope text-success me-1"></i>Email
+                                </label>
+                                <InputText @bind-Value="registerRequest.Email" class="form-control" 
+                                          placeholder="example@gmail.com" type="email" />
+                                <ValidationMessage For="@(() => registerRequest.Email)" class="text-danger small" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-telephone text-success me-1"></i>Số điện thoại
+                                </label>
+                                <InputText @bind-Value="registerRequest.Phone" class="form-control" 
+                                          placeholder="0901234567" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-geo-alt text-success me-1"></i>Địa chỉ
+                            </label>
+                            <InputTextArea @bind-Value="registerRequest.Address" class="form-control" 
+                                          rows="2" placeholder="123 Nguyễn Huệ, Q1, TP.HCM" />
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-lock text-success me-1"></i>Mật khẩu
+                                </label>
+                                <div class="input-group">
+                                    <InputText @bind-Value="registerRequest.Password" 
+                                              type="@(showPassword ? "text" : "password")" 
+                                              class="form-control" placeholder="••••••••" />
+                                    <button class="btn btn-outline-secondary" type="button" 
+                                            @onclick="() => showPassword = !showPassword">
+                                        <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                                    </button>
+                                </div>
+                                <ValidationMessage For="@(() => registerRequest.Password)" class="text-danger small" />
+                                <small class="text-muted">Tối thiểu 6 ký tự</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-lock-fill text-success me-1"></i>Xác nhận mật khẩu
+                                </label>
+                                <div class="input-group">
+                                    <InputText @bind-Value="confirmPassword" 
+                                              type="@(showConfirmPassword ? "text" : "password")" 
+                                              class="form-control" placeholder="••••••••" />
+                                    <button class="btn btn-outline-secondary" type="button" 
+                                            @onclick="() => showConfirmPassword = !showConfirmPassword">
+                                        <i class="bi @(showConfirmPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                                    </button>
+                                </div>
+                                @if (!string.IsNullOrEmpty(confirmPassword) && registerRequest.Password != confirmPassword)
+                                {
+                                    <small class="text-danger">Mật khẩu không khớp</small>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="agreeTerms" @bind="agreeTerms">
+                            <label class="form-check-label" for="agreeTerms">
+                                Tôi đồng ý với <a href="#" class="text-success text-decoration-none">Điều khoản dịch vụ</a> 
+                                và <a href="#" class="text-success text-decoration-none">Chính sách bảo mật</a>
+                            </label>
+                        </div>
+
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg" 
+                                    disabled="@(isLoading || !agreeTerms || registerRequest.Password != confirmPassword)">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Đang đăng ký...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-person-plus me-2"></i>
+                                    <span>Đăng ký</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <div class="text-center">
+                        <p class="text-muted mb-0">
+                            Đã có tài khoản? 
+                            <a href="/login" class="text-success text-decoration-none fw-semibold">Đăng nhập ngay</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterRequest registerRequest = new();
+    private string confirmPassword = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+    private bool showPassword = false;
+    private bool showConfirmPassword = false;
+    private bool agreeTerms = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Nếu đã đăng nhập thì chuyển về trang chủ
+        if (await AuthService.IsAuthenticatedAsync())
+        {
+            Navigation.NavigateTo("/", true);
+            return;
+        }
+    }
+
+    private async Task HandleRegister()
+    {
+        errorMessage = string.Empty;
+
+        if (registerRequest.Password != confirmPassword)
+        {
+            errorMessage = "Mật khẩu xác nhận không khớp!";
+            return;
+        }
+
+        if (registerRequest.Password.Length < 6)
+        {
+            errorMessage = "Mật khẩu phải có ít nhất 6 ký tự!";
+            return;
+        }
+
+        if (!agreeTerms)
+        {
+            errorMessage = "Vui lòng đồng ý với điều khoản dịch vụ!";
+            return;
+        }
+
+        isLoading = true;
+
+        try
+        {
+            var response = await AuthService.RegisterAsync(registerRequest);
+
+            if (response != null && response.Customer != null)
+            {
+                // Chuyển đến trang login với thông báo đăng ký thành công
+                Navigation.NavigateTo("/login?registered=true");
+            }
+            else
+            {
+                errorMessage = "Đăng ký thất bại! Email có thể đã được sử dụng.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Có lỗi xảy ra: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

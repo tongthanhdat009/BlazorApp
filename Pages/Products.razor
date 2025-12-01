@@ -1,0 +1,577 @@
+@page "/products"
+@layout CustomerLayout
+@using BlazorApp.Services
+@using BlazorApp.Dto
+@inject IAuthService AuthService
+@inject IProductService ProductService
+@inject NavigationManager Navigation
+
+<PageTitle>Sản phẩm - Store Manager</PageTitle>
+
+<div class="products-container">
+    <div class="products-header">
+        <div>
+            <h1>
+                <i class="bi bi-grid-3x3-gap-fill me-3"></i>
+                Danh sách sản phẩm
+            </h1>
+            <p class="text-muted">Khám phá các sản phẩm chất lượng của chúng tôi</p>
+        </div>
+    </div>
+
+    <div class="filters-section">
+        <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input type="text" 
+                   placeholder="Tìm kiếm sản phẩm..." 
+                   @bind="searchKeyword" 
+                   @bind:event="oninput"
+                   @onkeyup="OnSearchKeyup" />
+        </div>
+        <div class="category-filters">
+            <button class="filter-btn @(string.IsNullOrEmpty(selectedCategoryName) ? "active" : "")" 
+                    @onclick="() => FilterByCategory(null)">
+                Tất cả
+            </button>
+            @foreach (var category in categories)
+            {
+                <button class="filter-btn @(selectedCategoryName == category.CategoryName ? "active" : "")" 
+                        @onclick="() => FilterByCategory(category.CategoryName)">
+                    @category.CategoryName
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="page-size-selector">
+        <label>Hiển thị:</label>
+        <select @bind="pageSize" @bind:after="OnPageSizeChanged">
+            <option value="12">12 sản phẩm</option>
+            <option value="24">24 sản phẩm</option>
+            <option value="36">36 sản phẩm</option>
+            <option value="48">48 sản phẩm</option>
+        </select>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Đang tải sản phẩm...</p>
+        </div>
+    }
+    else if (filteredProducts.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="bi bi-box-seam"></i>
+            <p>Không tìm thấy sản phẩm nào</p>
+        </div>
+    }
+    else
+    {
+        <div class="products-grid">
+            @foreach (var product in paginatedProducts)
+            {
+                <div class="product-card" @onclick="() => ViewProduct(product.ProductId)">
+                    <div class="product-image">
+                        @if (!string.IsNullOrEmpty(product.ImageUrl))
+                        {
+                            <img src="@product.ImageUrl" alt="@product.ProductName" />
+                        }
+                        else
+                        {
+                            <div class="no-image">
+                                <i class="bi bi-image"></i>
+                            </div>
+                        }
+                    </div>
+                    <div class="product-info">
+                        <h5 class="product-name">@product.ProductName</h5>
+                        @if (!string.IsNullOrEmpty(product.CategoryName))
+                        {
+                            <span class="product-category">
+                                <i class="bi bi-tag"></i>
+                                @product.CategoryName
+                            </span>
+                        }
+                        <div class="d-flex align-items-center justify-content-between">
+                            <p class="product-price mb-0">@product.Price.ToString("N0") đ</p>
+                            <span class="badge @(product.IsInStock ? "bg-success" : "bg-danger")">
+                                @product.StockStatus
+                            </span>
+                        </div>
+                        <div class="view-detail">
+                            <span>Xem chi tiết</span>
+                            <i class="bi bi-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (totalPages > 1)
+        {
+            <div class="pagination">
+                <button class="page-btn" @onclick="() => ChangePage(1)" disabled="@(currentPage == 1)">
+                    <i class="bi bi-chevron-double-left"></i>
+                </button>
+                <button class="page-btn" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage == 1)">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+
+                @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                {
+                    var pageNumber = i;
+                    <button class="page-btn @(currentPage == pageNumber ? "active" : "")" 
+                            @onclick="() => ChangePage(pageNumber)">
+                        @pageNumber
+                    </button>
+                }
+
+                <button class="page-btn" @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage == totalPages)">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+                <button class="page-btn" @onclick="() => ChangePage(totalPages)" disabled="@(currentPage == totalPages)">
+                    <i class="bi bi-chevron-double-right"></i>
+                </button>
+            </div>
+
+            <div class="pagination-info">
+                <span>Hiển thị @((currentPage - 1) * pageSize + 1) - @Math.Min(currentPage * pageSize, filteredProducts.Count) trong tổng số @filteredProducts.Count sản phẩm</span>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .products-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .products-header {
+        margin-bottom: 2rem;
+    }
+
+    .products-header h1 {
+        color: #2c3e50;
+        font-weight: 700;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .filters-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+    }
+
+    .search-box {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-box i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #7f8c8d;
+        font-size: 1.2rem;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 0.875rem 1rem 0.875rem 3rem;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+
+    .search-box input:focus {
+        outline: none;
+        border-color: #2ecc71;
+        box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+    }
+
+    .category-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .page-size-selector {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .page-size-selector label {
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    .page-size-selector select {
+        padding: 0.5rem 2rem 0.5rem 0.75rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 500;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%232c3e50' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+    }
+
+    .page-size-selector select:hover {
+        border-color: #2ecc71;
+    }
+
+    .page-size-selector select:focus {
+        outline: none;
+        border-color: #2ecc71;
+        box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+    }
+
+    .filter-btn {
+        padding: 0.625rem 1.25rem;
+        background: #f8f9fa;
+        color: #495057;
+        border: 2px solid transparent;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .filter-btn:hover {
+        background: #e9ecef;
+        transform: translateY(-2px);
+    }
+
+    .filter-btn.active {
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        color: white;
+        border-color: #27ae60;
+    }
+
+    .loading-container {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 20px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 20px;
+        color: #95a5a6;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .product-card {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .product-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 8px 24px rgba(46, 204, 113, 0.2);
+    }
+
+    .product-image {
+        height: 220px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .product-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .no-image {
+        font-size: 4rem;
+        color: #bdc3c7;
+    }
+
+    .product-info {
+        padding: 1.25rem;
+    }
+
+    .product-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .product-category {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.85rem;
+        color: #7f8c8d;
+        margin-bottom: 0.75rem;
+    }
+
+    .product-price {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2ecc71;
+        margin-bottom: 1rem;
+    }
+
+    .view-detail {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        color: #2ecc71;
+        font-weight: 600;
+        font-size: 0.95rem;
+        padding: 0.75rem;
+        border: 2px solid #2ecc71;
+        border-radius: 10px;
+        transition: all 0.2s;
+    }
+
+    .product-card:hover .view-detail {
+        background: #2ecc71;
+        color: white;
+    }
+
+    .view-detail i {
+        transition: transform 0.2s;
+    }
+
+    .product-card:hover .view-detail i {
+        transform: translateX(4px);
+    }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 3rem;
+        flex-wrap: wrap;
+    }
+
+    .page-btn {
+        min-width: 40px;
+        height: 40px;
+        padding: 0.5rem 0.75rem;
+        background: white;
+        color: #495057;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .page-btn:hover:not(:disabled) {
+        border-color: #2ecc71;
+        color: #2ecc71;
+        transform: translateY(-2px);
+    }
+
+    .page-btn.active {
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        color: white;
+        border-color: #27ae60;
+    }
+
+    .page-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .pagination-info {
+        text-align: center;
+        margin-top: 1rem;
+        color: #7f8c8d;
+        font-size: 0.9rem;
+    }
+
+    @@media (max-width: 768px) {
+        .products-header h1 {
+            font-size: 1.5rem;
+        }
+
+        .filters-section {
+            padding: 1rem;
+        }
+
+        .products-grid {
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+    }
+</style>
+
+@code {
+    private List<ProductDto> products = new();
+    private List<ProductDto> filteredProducts = new();
+    private List<ProductDto> paginatedProducts = new();
+    private List<CategoryDto> categories = new();
+    private bool isLoading = true;
+    private string searchKeyword = "";
+    private string? selectedCategoryName = null;
+    private System.Threading.Timer? searchTimer;
+    
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 12;
+    private int totalPages => (int)Math.Ceiling(filteredProducts.Count / (double)pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            products = await ProductService.GetAllProductsAsync();
+            categories = await ProductService.GetAllCategoriesAsync();
+            filteredProducts = products;
+            UpdatePagination();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void FilterByCategory(string? categoryName)
+    {
+        selectedCategoryName = categoryName;
+        ApplyFilters();
+    }
+
+    private void OnSearchKeyup()
+    {
+        searchTimer?.Dispose();
+        searchTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                ApplyFilters();
+                StateHasChanged();
+            });
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private void ApplyFilters()
+    {
+        filteredProducts = products;
+
+        // Filter by category name
+        if (!string.IsNullOrEmpty(selectedCategoryName))
+        {
+            filteredProducts = filteredProducts
+                .Where(p => p.CategoryName == selectedCategoryName)
+                .ToList();
+        }
+
+        // Filter by search keyword
+        if (!string.IsNullOrWhiteSpace(searchKeyword))
+        {
+            var keyword = searchKeyword.ToLower();
+            filteredProducts = filteredProducts
+                .Where(p => p.ProductName.ToLower().Contains(keyword) ||
+                           (p.CategoryName?.ToLower().Contains(keyword) ?? false))
+                .ToList();
+        }
+
+        // Sort: In stock items first, then out of stock
+        filteredProducts = filteredProducts
+            .OrderByDescending(p => p.IsInStock)
+            .ThenBy(p => p.ProductName)
+            .ToList();
+
+        // Reset to first page when filters change
+        currentPage = 1;
+        UpdatePagination();
+    }
+
+    private void OnPageSizeChanged()
+    {
+        currentPage = 1;
+        UpdatePagination();
+    }
+
+    private void UpdatePagination()
+    {
+        paginatedProducts = filteredProducts
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        UpdatePagination();
+    }
+
+    private void ViewProduct(int productId)
+    {
+        Navigation.NavigateTo($"/products/{productId}");
+    }
+
+    public void Dispose()
+    {
+        searchTimer?.Dispose();
+    }
+}

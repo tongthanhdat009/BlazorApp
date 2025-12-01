@@ -1,0 +1,181 @@
+@inherits LayoutComponentBase
+@using BlazorApp.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="d-flex flex-column min-vh-100">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top border-bottom">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <div class="bg-success text-white rounded-3 p-2 me-2">
+                    <i class="bi bi-shop fs-4"></i>
+                </div>
+                <span class="fw-bold text-success fs-5 d-none d-md-inline">Store Manager</span>
+            </a>
+
+            <div class="d-flex align-items-center gap-2">
+                <a href="/products" class="btn btn-light d-flex align-items-center gap-2">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                    <span class="d-none d-md-inline">Sản phẩm</span>
+                </a>
+                
+                <a href="/cart" class="btn btn-light position-relative d-flex align-items-center gap-2">
+                    <i class="bi bi-cart3"></i>
+                    <span class="d-none d-md-inline">Giỏ hàng</span>
+                    @if (cartItemCount > 0)
+                    {
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            @cartItemCount
+                        </span>
+                    }
+                </a>
+
+                @if (isAuthenticated)
+                {
+                    <div class="dropdown">
+                        <button class="btn btn-outline-success rounded-pill d-flex align-items-center gap-2" type="button" @onclick="ToggleUserMenu">
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <span class="d-none d-md-inline">@customerName</span>
+                            <i class="bi bi-chevron-down small"></i>
+                        </button>
+
+                        @if (showUserMenu)
+                        {
+                            <div class="dropdown-menu dropdown-menu-end show position-absolute" style="min-width: 280px;">
+                                <div class="dropdown-header bg-light">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                            <i class="bi bi-person-circle fs-2"></i>
+                                        </div>
+                                        <div class="flex-grow-1 text-truncate">
+                                            <div class="fw-semibold text-dark">@customerName</div>
+                                            <div class="small text-muted text-truncate">@customerEmail</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <a href="/profile" class="dropdown-item d-flex align-items-center gap-2" @onclick="CloseUserMenu">
+                                    <i class="bi bi-person text-success"></i>
+                                    <span>Thông tin tài khoản</span>
+                                </a>
+                                <a href="/orders" class="dropdown-item d-flex align-items-center gap-2" @onclick="CloseUserMenu">
+                                    <i class="bi bi-bag-check text-success"></i>
+                                    <span>Đơn hàng của tôi</span>
+                                </a>
+                                <a href="/cart" class="dropdown-item d-flex align-items-center gap-2" @onclick="CloseUserMenu">
+                                    <i class="bi bi-cart3 text-success"></i>
+                                    <span>Giỏ hàng</span>
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <button class="dropdown-item d-flex align-items-center gap-2 text-danger" @onclick="HandleLogout">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                    <span>Đăng xuất</span>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                    
+                    @if (showUserMenu)
+                    {
+                        <div class="position-fixed top-0 start-0 w-100 h-100" style="z-index: 1040;" @onclick="CloseUserMenu"></div>
+                    }
+                }
+                else
+                {
+                    <a href="/login" class="btn btn-success rounded-pill d-flex align-items-center gap-2">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                        <span class="d-none d-md-inline">Đăng nhập</span>
+                    </a>
+                }
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow-1">
+        <div class="container-fluid py-4 px-4" style="max-width: 1400px;">
+            @Body
+        </div>
+    </main>
+
+    <footer class="bg-dark text-white mt-auto py-5">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <h4 class="text-success mb-3">Store Manager</h4>
+                    <p class="text-white-50">Hệ thống quản lý cửa hàng chuyên nghiệp</p>
+                </div>
+                <div class="col-md-3">
+                    <h5 class="mb-3">Liên kết</h5>
+                    <div class="d-flex flex-column gap-2">
+                        <a href="/products" class="text-white-50 text-decoration-none">Sản phẩm</a>
+                    </div>
+                </div>
+            </div>
+            <hr class="border-secondary my-4" />
+            <div class="text-center text-white-50">
+                <p class="mb-0">&copy; 2025 Store Manager. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</div>
+
+@code {
+    private bool isAuthenticated = false;
+    private string customerName = string.Empty;
+    private string customerEmail = string.Empty;
+    private int cartItemCount = 0;
+    private bool showUserMenu = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckAuthStatus();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CheckAuthStatus();
+            StateHasChanged();
+        }
+    }
+
+    private async Task CheckAuthStatus()
+    {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        
+        if (isAuthenticated)
+        {
+            var user = await AuthService.GetCurrentUserAsync();
+            customerName = user?.Name ?? "Khách hàng";
+            customerEmail = user?.Email ?? "customer@example.com";
+            cartItemCount = 0;
+        }
+    }
+
+    private void ToggleUserMenu()
+    {
+        showUserMenu = !showUserMenu;
+    }
+
+    private void CloseUserMenu()
+    {
+        showUserMenu = false;
+    }
+
+    private async Task HandleLogout()
+    {
+        showUserMenu = false;
+        await AuthService.LogoutAsync();
+        
+        // Cập nhật trạng thái ngay lập tức
+        isAuthenticated = false;
+        customerName = string.Empty;
+        customerEmail = string.Empty;
+        cartItemCount = 0;
+        
+        StateHasChanged();
+    }
+}

@@ -1,7 +1,207 @@
 ﻿@page "/"
+@layout CustomerLayout
+@using BlazorApp.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Trang chủ - Store Manager</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="home-container">
+    <section class="hero-section">
+        <div class="hero-content">
+            <div class="hero-icon">
+                <i class="bi bi-house-heart-fill"></i>
+            </div>
+            <h1>Chào mừng đến với Store Manager!</h1>
+            <p>Khám phá các sản phẩm tuyệt vời của chúng tôi</p>
+            <a href="/products" class="btn-shop-now">
+                <i class="bi bi-shop me-2"></i>
+                Mua sắm ngay
+            </a>
+        </div>
+    </section>
 
-Welcome to your new app.
+    <section class="features-section">
+        <h2>Tại sao chọn chúng tôi?</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                </div>
+                <h3>Giao hàng nhanh</h3>
+                <p>Giao hàng trong 24h với đơn nội thành</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <h3>Bảo hành chính hãng</h3>
+                <p>Cam kết 100% hàng chính hãng</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="bi bi-headset"></i>
+                </div>
+                <h3>Hỗ trợ 24/7</h3>
+                <p>Đội ngũ hỗ trợ nhiệt tình</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+    .home-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .hero-section {
+        background: white;
+        border-radius: 24px;
+        padding: 3rem 2rem;
+        text-align: center;
+        box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+        margin-bottom: 3rem;
+    }
+
+    .hero-content {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .hero-icon {
+        font-size: 4rem;
+        color: #2ecc71;
+        margin-bottom: 1rem;
+        animation: bounce 2s infinite;
+    }
+
+    @@keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .hero-section h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #2c3e50;
+        margin-bottom: 0.75rem;
+        line-height: 1.2;
+    }
+
+    .hero-section p {
+        font-size: 1.1rem;
+        color: #7f8c8d;
+    }
+
+    .btn-shop-now {
+        display: inline-flex;
+        align-items: center;
+        padding: 1rem 2.5rem;
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 14px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-top: 1.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 16px rgba(46, 204, 113, 0.3);
+    }
+
+    .btn-shop-now:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 8px 24px rgba(46, 204, 113, 0.4);
+        color: white;
+    }
+
+    /* Features Section */
+    .features-section {
+        padding: 2rem 0;
+    }
+
+    .features-section h2 {
+        text-align: center;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 2.5rem;
+    }
+
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+    }
+
+    .feature-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 20px;
+        text-align: center;
+        box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+        transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(46, 204, 113, 0.12);
+    }
+
+    .feature-icon {
+        width: 70px;
+        height: 70px;
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.25rem;
+        font-size: 2rem;
+        color: white;
+    }
+
+    .feature-card h3 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .feature-card p {
+        color: #7f8c8d;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    @@media (max-width: 768px) {
+        .hero-section {
+            padding: 2rem 1.5rem;
+        }
+
+        .hero-section h1 {
+            font-size: 1.75rem;
+        }
+
+        .btn-shop-now {
+            padding: 0.875rem 2rem;
+            font-size: 1rem;
+        }
+
+        .features-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+    }
+</style>
+
+@code {
+    @* protected override async Task OnInitializedAsync()
+    {
+        if (!await AuthService.IsAuthenticatedAsync())
+        {
+            Navigation.NavigateTo("/login", true);
+            return;
+        }
+    } *@
+}

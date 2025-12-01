@@ -1,39 +1,105 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">BlazorApp</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
+﻿@using BlazorApp.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="bg-gradient p-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2 text-white">
+            <i class="bi bi-shop fs-4"></i>
+            <span class="fw-bold fs-5">Store Manager</span>
+        </div>
+        <button class="btn btn-sm text-white d-lg-none" @onclick="ToggleNavMenu">
+            <i class="bi @(collapseNavMenu ? "bi-list" : "bi-x-lg") fs-4"></i>
         </button>
     </div>
 </div>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
+<div class="@NavMenuCssClass overflow-auto" style="height: calc(100vh - 70px); background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);">
+    <nav class="nav flex-column p-3">
+        <NavLink class="nav-link d-flex align-items-center gap-3 p-3 mb-2 rounded-3 text-dark" href="" Match="NavLinkMatch.All">
+            <i class="bi bi-house-door-fill fs-5"></i>
+            <span class="fw-medium">Trang chủ</span>
+        </NavLink>
+        <NavLink class="nav-link d-flex align-items-center gap-3 p-3 mb-2 rounded-3 text-dark" href="products">
+            <i class="bi bi-grid-3x3-gap-fill fs-5"></i>
+            <span class="fw-medium">Sản phẩm</span>
+        </NavLink>
+        <NavLink class="nav-link d-flex align-items-center gap-3 p-3 mb-2 rounded-3 text-dark" href="cart">
+            <i class="bi bi-cart3 fs-5"></i>
+            <span class="fw-medium">Giỏ hàng</span>
+        </NavLink>
+        <NavLink class="nav-link d-flex align-items-center gap-3 p-3 mb-2 rounded-3 text-dark" href="orders">
+            <i class="bi bi-bag-check fs-5"></i>
+            <span class="fw-medium">Đơn hàng</span>
+        </NavLink>
+        <NavLink class="nav-link d-flex align-items-center gap-3 p-3 mb-2 rounded-3 text-dark" href="profile">
+            <i class="bi bi-person fs-5"></i>
+            <span class="fw-medium">Tài khoản</span>
+        </NavLink>
+
+        @if (isAuthenticated)
+        {
+            <div class="mt-auto pt-4 border-top">
+                <div class="bg-gradient p-3 rounded-3 mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="d-flex align-items-center gap-3 text-white">
+                        <div class="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                            <i class="bi bi-person-circle fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">@customerName</div>
+                            <div class="small opacity-75">Khách hàng</div>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2" @onclick="HandleLogout">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Đăng xuất</span>
+                </button>
+            </div>
+        }
     </nav>
 </div>
 
 @code {
     private bool collapseNavMenu = true;
+    private bool isAuthenticated = false;
+    private string customerName = string.Empty;
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : "collapse show";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckAuthStatus();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CheckAuthStatus();
+            StateHasChanged();
+        }
+    }
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    private async Task CheckAuthStatus()
+    {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        
+        if (isAuthenticated)
+        {
+            var user = await AuthService.GetCurrentUserAsync();
+            customerName = user?.Name ?? "User";
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", true);
     }
 }

@@ -1,0 +1,427 @@
+@page "/products/{productId:int}"
+@layout CustomerLayout
+@using BlazorApp.Services
+@using BlazorApp.Dto
+@inject IAuthService AuthService
+@inject IProductService ProductService
+@inject NavigationManager Navigation
+
+<PageTitle>@(product?.ProductName ?? "Chi tiết sản phẩm") - Store Manager</PageTitle>
+
+<div class="product-detail-container">
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Đang tải sản phẩm...</p>
+        </div>
+    }
+    else if (product == null)
+    {
+        <div class="empty-state">
+            <i class="bi bi-box-seam"></i>
+            <h3>Không tìm thấy sản phẩm</h3>
+            <a href="/products" class="btn btn-primary mt-3">
+                <i class="bi bi-arrow-left me-2"></i>
+                Quay lại danh sách
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="breadcrumb-nav">
+            <a href="/">Trang chủ</a>
+            <i class="bi bi-chevron-right"></i>
+            <a href="/products">Sản phẩm</a>
+            <i class="bi bi-chevron-right"></i>
+            <span>@product.ProductName</span>
+        </div>
+
+        <div class="product-detail-content">
+            <div class="product-images">
+                <div class="main-image">
+                    @if (!string.IsNullOrEmpty(product.ImageUrl))
+                    {
+                        <img src="@product.ImageUrl" alt="@product.ProductName" />
+                    }
+                    else
+                    {
+                        <div class="no-image">
+                            <i class="bi bi-image"></i>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="product-details">
+                <div class="category-badge">
+                    <i class="bi bi-tag"></i>
+                    @product.CategoryName
+                </div>
+                
+                <h1 class="product-title">@product.ProductName</h1>
+                
+                <div class="product-price-section">
+                    <span class="price">@product.Price.ToString("N0") đ</span>
+                </div>
+
+                @if (!string.IsNullOrEmpty(product.Description))
+                {
+                    <div class="product-description">
+                        <h3>Mô tả sản phẩm</h3>
+                        <p>@product.Description</p>
+                    </div>
+                }
+
+                <div class="product-meta">
+                    <div class="meta-item">
+                        <i class="bi bi-box"></i>
+                        <span>Mã sản phẩm: @GetProductCode(product.ProductId)</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(product.Barcode))
+                    {
+                        <div class="meta-item">
+                            <i class="bi bi-upc-scan"></i>
+                            <span>Mã vạch: @product.Barcode</span>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(product.Unit))
+                    {
+                        <div class="meta-item">
+                            <i class="bi bi-box-seam"></i>
+                            <span>Đơn vị: @product.Unit</span>
+                        </div>
+                    }
+                    @if (product.Supplier != null)
+                    {
+                        <div class="meta-item">
+                            <i class="bi bi-building"></i>
+                            <span>Nhà cung cấp: @product.Supplier.Name</span>
+                        </div>
+                    }
+                    <div class="meta-item">
+                        <i class="bi @(product.IsInStock ? "bi-check-circle text-success" : "bi-x-circle text-danger")"></i>
+                        <span class="@(product.IsInStock ? "text-success" : "text-danger") fw-bold">@product.StockStatus</span>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn-add-to-cart" @onclick="HandleAddToCart" disabled="@(!product.IsInStock)">
+                        <i class="bi bi-cart-plus me-2"></i>
+                        Thêm vào giỏ hàng
+                    </button>
+                    <button class="btn-buy-now" @onclick="HandleBuyNow" disabled="@(!product.IsInStock)">
+                        <i class="bi bi-lightning-fill me-2"></i>
+                        Mua ngay
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .product-detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .breadcrumb-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        font-size: 0.9rem;
+    }
+
+    .breadcrumb-nav a {
+        color: #7f8c8d;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    .breadcrumb-nav a:hover {
+        color: #2ecc71;
+    }
+
+    .breadcrumb-nav i {
+        color: #bdc3c7;
+        font-size: 0.7rem;
+    }
+
+    .breadcrumb-nav span {
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    .product-detail-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        background: white;
+        padding: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    .product-images {
+        position: sticky;
+        top: 2rem;
+        height: fit-content;
+    }
+
+    .main-image {
+        width: 100%;
+        height: 500px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .main-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .no-image {
+        font-size: 5rem;
+        color: #bdc3c7;
+    }
+
+    .product-details {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .category-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #e8f5e9;
+        color: #2ecc71;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        width: fit-content;
+    }
+
+    .product-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0;
+        line-height: 1.3;
+    }
+
+    .product-price-section {
+        padding: 1.5rem 0;
+        border-top: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .price {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #2ecc71;
+    }
+
+    .product-description h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+    }
+
+    .product-description p {
+        color: #7f8c8d;
+        line-height: 1.8;
+        font-size: 1rem;
+    }
+
+    .product-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #495057;
+        font-size: 0.95rem;
+    }
+
+    .meta-item i {
+        font-size: 1.2rem;
+        color: #2ecc71;
+    }
+
+    .action-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .btn-add-to-cart, .btn-buy-now {
+        padding: 1rem 2rem;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-add-to-cart {
+        background: white;
+        color: #2ecc71;
+        border: 2px solid #2ecc71;
+    }
+
+    .btn-add-to-cart:hover {
+        background: #2ecc71;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+    }
+
+    .btn-buy-now {
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        color: white;
+    }
+
+    .btn-buy-now:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+    }
+
+    .loading-container, .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 20px;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        color: #95a5a6;
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        color: #7f8c8d;
+        margin-bottom: 1rem;
+    }
+
+    @@media (max-width: 768px) {
+        .product-detail-content {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            padding: 1.5rem;
+        }
+
+        .product-images {
+            position: relative;
+            top: 0;
+        }
+
+        .main-image {
+            height: 350px;
+        }
+
+        .product-title {
+            font-size: 1.5rem;
+        }
+
+        .price {
+            font-size: 2rem;
+        }
+
+        .action-buttons {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int ProductId { get; set; }
+
+    private ProductDto? product;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProduct();
+    }
+
+    private async Task LoadProduct()
+    {
+        isLoading = true;
+        try
+        {
+            // TODO: Implement GetProductByIdAsync in ProductService
+            // product = await ProductService.GetProductByIdAsync(ProductId);
+            
+            // Temporary: Get from all products list
+            var products = await ProductService.GetAllProductsAsync();
+            product = products.FirstOrDefault(p => p.ProductId == ProductId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading product: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleAddToCart()
+    {
+        if (!await AuthService.IsAuthenticatedAsync())
+        {
+            Navigation.NavigateTo($"/login?returnUrl=/products/{ProductId}", true);
+            return;
+        }
+
+        // TODO: Implement add to cart logic
+        Console.WriteLine($"Thêm sản phẩm {ProductId} vào giỏ hàng");
+        Navigation.NavigateTo("/cart");
+    }
+
+    private async Task HandleBuyNow()
+    {
+        if (!await AuthService.IsAuthenticatedAsync())
+        {
+            Navigation.NavigateTo($"/login?returnUrl=/products/{ProductId}", true);
+            return;
+        }
+
+        // TODO: Implement buy now logic
+        Console.WriteLine($"Mua ngay sản phẩm {ProductId}");
+        // Add to cart and go to checkout
+        Navigation.NavigateTo("/cart");
+    }
+
+    private string GetProductCode(int productId)
+    {
+        return $"SP{productId:D6}";
+    }
+}

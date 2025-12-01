@@ -1,0 +1,167 @@
+@page "/login"
+@layout AuthLayout
+@using BlazorApp.Dto
+@using BlazorApp.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg mt-5">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold">Đăng nhập</h2>
+                        <p class="text-muted">Đăng nhập để tiếp tục mua sắm</p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>@errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill me-2"></i>@successMessage
+                            <button type="button" class="btn-close" @onclick="() => successMessage = string.Empty"></button>
+                        </div>
+                    }
+
+                    <EditForm Model="@loginRequest" OnValidSubmit="HandleLogin">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-envelope text-success me-1"></i>Email
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="bi bi-envelope text-success"></i>
+                                </span>
+                                <InputText @bind-Value="loginRequest.Email" class="form-control border-start-0 ps-0" placeholder="example@gmail.com" />
+                            </div>
+                            <ValidationMessage For="@(() => loginRequest.Email)" class="text-danger small" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-lock text-success me-1"></i>Mật khẩu
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="bi bi-lock text-success"></i>
+                                </span>
+                                <InputText @bind-Value="loginRequest.Password" type="@(showPassword ? "text" : "password")" 
+                                          class="form-control border-start-0 border-end-0 ps-0" placeholder="••••••••" />
+                                <button class="btn btn-outline-secondary border-start-0" type="button" @onclick="TogglePasswordVisibility">
+                                    <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                                </button>
+                            </div>
+                            <ValidationMessage For="@(() => loginRequest.Password)" class="text-danger small" />
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="rememberMe" @bind="rememberMe">
+                            <label class="form-check-label" for="rememberMe">Ghi nhớ đăng nhập</label>
+                        </div>
+
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Đang đăng nhập...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-box-arrow-in-right me-2"></i>
+                                    <span>Đăng nhập</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <div class="text-center">
+                        <p class="text-muted mb-0">
+                            Chưa có tài khoản? 
+                            <a href="/register" class="text-success text-decoration-none fw-semibold">Đăng ký ngay</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginRequest = new();
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+    private bool isLoading = false;
+    private bool showPassword = false;
+    private bool rememberMe = false;
+
+    [SupplyParameterFromQuery(Name = "registered")]
+    public bool JustRegistered { get; set; }
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Nếu đã đăng nhập thì chuyển về trang chủ
+        if (await AuthService.IsAuthenticatedAsync())
+        {
+            Navigation.NavigateTo("/", true);
+            return;
+        }
+
+        if (JustRegistered)
+        {
+            successMessage = "Đăng ký thành công! Vui lòng đăng nhập.";
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        showPassword = !showPassword;
+    }
+
+    private async Task HandleLogin()
+    {
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        isLoading = true;
+
+        try
+        {
+            var response = await AuthService.LoginAsync(loginRequest);
+
+            if (response != null && !string.IsNullOrEmpty(response.Token))
+            {
+                successMessage = "Đăng nhập thành công! Đang chuyển hướng...";
+                await Task.Delay(1000);
+                
+                // Nếu có returnUrl thì quay lại trang đó, không thì về trang chủ
+                var redirectUrl = !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/";
+                Navigation.NavigateTo(redirectUrl, true);
+            }
+            else
+            {
+                errorMessage = "Email hoặc mật khẩu không đúng!";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Có lỗi xảy ra: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

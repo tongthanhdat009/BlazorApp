@@ -1,0 +1,30 @@
+/* Custom styles that complement Bootstrap */
+
+.dropdown-menu {
+    z-index: 1050;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-15px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.dropdown-item:hover {
+    padding-left: 1.5rem;
+    transition: padding-left 0.2s ease;
+}
+
+@media (max-width: 768px) {
+    .dropdown-menu {
+        min-width: 260px !important;
+    }
+}
