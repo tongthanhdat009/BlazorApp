@@ -1,5 +1,11 @@
 @page "/orders"
 @layout CustomerLayout
+@using BlazorApp.Services
+@using BlazorApp.Dto
+@inject IOrderService OrderService
+@inject NavigationManager Navigation
+@inject IJSRuntime _jsRuntime
+@using System.Text.Json
 
 <PageTitle>Đơn hàng</PageTitle>
 
@@ -9,35 +15,578 @@
             <i class="bi bi-receipt me-3"></i>
             Đơn hàng của bạn
         </h1>
+        <div class="filters-section">
+            <div class="search-box">
+                <i class="bi bi-search"></i>
+                <input type="text" 
+                    placeholder="Tìm kiếm mã đơn hàng..." 
+                    @bind="searchKeyword" 
+                    @bind:event="oninput"
+                    @onkeyup="OnSearchKeyup" />
+            </div>
+            <div class="category-section">
+                <button class="filter-btn @(string.IsNullOrEmpty(selectedCategoryName) ? "active" : "")" 
+                    @onclick='() => FilterByCategory(null)'>
+                    Tất cả
+                </button>
+
+                <button class="filter-btn @(selectedCategoryName == "pending" ? "active" : "")"
+                    @onclick='() => FilterByCategory("pending")'>
+                    Chờ xác nhận
+                </button>
+
+                <button class="filter-btn @(selectedCategoryName == "paid" ? "active" : "")"
+                    @onclick='() => FilterByCategory("paid")'>
+                    Hoàn thành
+                </button>
+
+                <button class="filter-btn @(selectedCategoryName == "canceled" ? "active" : "")"
+                    @onclick='() => FilterByCategory("canceled")'>
+                    Đã hủy
+                </button>
+            </div>
+        </div>
     </div>
 
-    <div class="empty-orders">
-        <div class="empty-icon">
-            <i class="bi bi-receipt-cutoff"></i>
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Đang tải đơn hàng...</p>
         </div>
-        <h3>Chưa có đơn hàng nào</h3>
-        <p class="text-muted">Bạn chưa có đơn hàng nào. Hãy bắt đầu mua sắm ngay!</p>
-        <a href="/products" class="btn btn-success btn-lg">
-            <i class="bi bi-grid-3x3-gap-fill me-2"></i>
-            Mua sắm ngay
-        </a>
-    </div>
+    }
+    else if (filteredOrders.Count == 0)
+    {
+        <div class="empty-orders">
+            <div class="empty-icon">
+                <i class="bi bi-receipt-cutoff"></i>
+            </div>
+            <h3>Chưa có đơn hàng nào</h3>
+            <p class="text-muted">Bạn chưa có đơn hàng nào. Hãy bắt đầu mua sắm ngay!</p>
+            <a href="/products" class="btn btn-success btn-lg">
+                <i class="bi bi-grid-3x3-gap-fill me-2"></i>
+                Mua sắm ngay
+            </a>
+        </div>
+    }
+    else 
+    {
+        <div class="orders-body">
+            @foreach (var order in filteredOrders)
+            {
+                <div class="orders-item">
+                    <div class="header">
+                        <span class="order-code">
+                            MÃ ĐƠN HÀNG: @order.OrderId
+                        </span>
+
+                        <span class="order-status">
+                            
+                            @switch (order.Status?.ToLower())
+                            {
+                                case "pending":
+                                    @:<text class="badge pending">CHỜ XÁC NHẬN</text>
+                                    break;
+
+                                case "paid":
+                                    @:<text class="badge paid">HOÀN THÀNH</text>
+                                    break;
+
+                                case "canceled":
+                                    @:<text class="badge canceled">ĐÃ HỦY</text>
+                                    break;
+
+                                default:
+                                    @:<text>KHÔNG XÁC ĐỊNH</text>
+                                    break;
+                            }
+                        </span>
+                    </div>
+
+                    <div class="body">
+                        @{
+                            bool isExpanded = expandOrderItems.ContainsKey(order.OrderId)
+                                            && expandOrderItems[order.OrderId];
+
+                            var displayItems = isExpanded
+                                ? order.OrderItems
+                                : order.OrderItems.Take(2);
+                        }
+
+                        @foreach (var item in displayItems)
+                        {
+                            <div class="order-item">
+                                <div class="item-image">
+                                    @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                    {
+                                        <img src="@item.ImageUrl" alt="@item.ProductName" />
+                                    }
+                                    else
+                                    {
+                                        <div class="no-image">
+                                            <i class="bi bi-image"></i>
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="item-info">
+                                    <span class="title">@item.ProductName</span>
+                                    <span class="quantity">x @item.Quantity</span>
+                                </div>
+
+                                <div class="item-amount">
+                                    @item.Subtotal đ
+                                </div>
+                            </div>
+                        }
+
+                        <!-- NÚT HIỆN / THU GỌN -->
+                        @if (order.OrderItems.Count > 2)
+                        {
+                            <button class="show-more-btn"
+                                    @onclick="() => ToggleExpand(order.OrderId)">
+                                @(isExpanded
+                                    ? "Thu gọn"
+                                    : $"Hiện tất cả ({order.OrderItems.Count} sản phẩm)")
+                            </button>
+                        }
+                    </div>
+
+
+                    <div class="footer">
+                        <div class="order-total-amount">
+                            Thành tiền: 
+                            <span class="total-amount">
+                                @(order.TotalAmount - order.DiscountAmount)
+                            </span>
+                        </div>
+                        <div class="order-btn">
+                            @if(order.Status == "pending")
+                            {
+                                <button class="order-btn-cancel" @onclick="() => OpenConfirm(order)">
+                                    Hủy đơn
+                                </button>
+                            }
+                            <button class="order-btn-detail" 
+                                @onclick="() => OpenOrderDetail(order)"
+                            >
+                                Xem chi tiết
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            }
+        </div>
+    }
+
+    <!-- MODAL XEM CHI TIẾT ĐƠN HÀNG -->
+    @if (isShowDetailModal && selectedOrder != null)
+    {
+        <div class="modal-backdrop-custom" @onclick="CloseOrderDetail"></div>
+
+        <div class="order-detail-modal">
+            <div class="modal-header">
+                    <span 
+                        style="
+                            font-size: 20px;
+                            font-weight: bold;
+                        "
+                    >
+                        Chi tiết đơn hàng #@selectedOrder.OrderId
+                    </span>
+                    <span
+                        style="
+                            font-size: 15px;
+                            color: #757575;
+                        "
+                    >
+                        Yêu cầu vào: @selectedOrder.OrderDate
+                        &nbsp;&nbsp;|
+                        <span style="color: #27ae60; padding-left: 10px;">
+                            
+                            @switch (selectedOrder.Status?.ToLower())
+                            {
+                                case "pending":
+                                    @:<text class="badge pending">CHỜ XÁC NHẬN</text>
+                                    break;
+
+                                case "paid":
+                                    @:<text class="badge paid">HOÀN THÀNH</text>
+                                    break;
+
+                                case "canceled":
+                                    @:<text class="badge canceled">ĐÃ HỦY</text>
+                                    break;
+
+                                default:
+                                    @:<text>KHÔNG XÁC ĐỊNH</text>
+                                    break;
+                            }
+                        </span>
+                    </span>
+                    
+            </div>
+
+            <div class="modal-body">
+                <div class="modal-info-detail airmail-border">
+                    <h3 style="text-align: center; font-weight: 500; margin-bottom: 10px;">Thông tin khách hàng</h3>
+                    <div class="detail">
+                        @if (customer != null)
+                        {
+                                <div style="display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(117, 117, 117, 0.3); margin-bottom: 10px;">
+                                    <span>Tên khách hàng:</span>
+                                    <span>@customer.Name </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(117, 117, 117, 0.3); margin-bottom: 10px;">
+                                    <span>Số điện thoại:</span>
+                                    <span>@customer.Phone </span>
+                                </div>
+
+
+                                <div style="display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(117, 117, 117, 0.3); margin-bottom: 10px;">
+                                    <span>Địa chỉ:</span>
+                                    <span>@customer.Address </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(117, 117, 117, 0.3); margin-bottom: 10px;">
+                                    <span>Email:</span>
+                                    <span>@customer.Email</span>
+                                </div>
+                        }
+                    </div>
+                </div>
+                <table class="modal-table">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Sản phẩm</th>
+                            <th>Số lượng</th>
+                            <th>Đơn giá</th>
+                            <th>Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            int stt = 1;
+                        }
+                        @foreach (var item in selectedOrder.OrderItems)
+                        {
+                            <tr>
+                                <td>@stt</td>
+                                <td>@item.ProductName</td>
+                                <td>x @item.Quantity</td>
+                                <td>@item.Price đ</td>
+                                <td>@item.Subtotal đ</td>
+                            </tr>
+                            stt++;
+                        }
+                    </tbody>
+                </table>
+                <div class="modal-final-amount">
+                    <div class="detail-amount">
+                        <div style="display: flex; justify-content: space-between; gap: 90px">
+                            <span>Tổng tiền:</span>
+                            <span>@selectedOrder.TotalAmount đ</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; gap: 90px; padding-bottom: 10px; border-bottom: 1px solid #757575;">
+                            <span>Giảm giá:</span>
+                            <span>-@selectedOrder.DiscountAmount đ</span>
+                        </div>
+                    </div>
+                    <div class="final-amount">
+                        <div style="display: flex; justify-content: space-between; font-size: 18px; padding-top: 10px; gap: 60px;">
+                            <span>Thành tiền:</span>
+                            <span style="color: #27ae60; font-weight: 600;">@(selectedOrder.TotalAmount - selectedOrder.DiscountAmount) đ</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+
+            <div class="modal-footer">
+                
+                <button class="order-btn-detail" @onclick="CloseOrderDetail">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    }
+
+    <!-- MODAL HỦY ĐƠN HÀNG -->
+    @if (ShowConfirm && selectedOrder != null)
+    {
+        <div class="confirm-overlay">
+            <div class="confirm-box">
+                <h3>Xác nhận</h3>
+                <p>
+                    Bạn muốn hủy đơn @selectedOrder.OrderId
+                </p>
+
+                <div class="actions">
+                    <button class="btn-yes"
+                            disabled="@Canceling"
+                            @onclick="DoCancel">
+                        @(Canceling ? "Đang hủy..." : "Xác nhận")
+                    </button>
+
+                    <button class="btn-no"
+                            disabled="@Canceling"
+                            @onclick="CloseConfirm">
+                        Hủy
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(CancelError))
+                {
+                    <div class="error" style="margin-top:8px;">
+                        @CancelError
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+
 </div>
 
 <style>
+    /* CSS CHO MODAL HỦY ĐƠN HÀNG */
+    .confirm-overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.4); z-index:1000; }
+    .confirm-box { background:#fff; width:360px; border-radius:10px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+    .confirm-box h3 { margin:0 0 8px; }
+    .confirm-box .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+    .btn-yes { padding:8px 12px; background:#ef4444; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+    .btn-no { padding:8px 12px; background:#e5e7eb; color:#111827; border:none; border-radius:6px; cursor:pointer; }
+
+
+    /* BADGE */
+    .badge { 
+        padding:4px 8px; 
+        border-radius:999px; 
+        font-size:12px; 
+        font-weight:700; 
+        text-transform:uppercase; 
+    }
+
+    .badge.paid { 
+        background:#e6fffa; 
+        color:#0f766e; 
+    }
+
+    .badge.pending { 
+        background:#fff7ed; 
+        color:#b45309; 
+    }
+    .badge.canceled { 
+        background:#fee2e2; 
+        color:#b91c1c; 
+    }
+
+
+    /* CSS CHO ORDER CONTAINER */
     .orders-container {
         max-width: 1000px;
         margin: 0 auto;
     }
 
     .orders-header {
-        text-align: center;
-        margin-bottom: 3rem;
+        margin-bottom: 1rem;
     }
 
     .orders-header h1 {
+        text-align: center;
         color: #2c3e50;
         font-weight: 700;
+    }
+
+    .orders-header .filters-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+    }
+
+
+    .orders-header .filters-section .search-box {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .orders-header .filters-section .search-box i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #7f8c8d;
+        font-size: 1.2rem;
+    }
+
+    .orders-header .filters-section .search-box input {
+        width: 100%;
+        padding: 0.875rem 1rem 0.875rem 3rem;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+
+    .orders-header .filters-section .search-box input:focus {
+        outline: none;
+        border-color: #2ecc71;
+        box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+    }
+
+    .orders-header .filters-section .category-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .orders-header .filters-section .filter-btn {
+        padding: 0.625rem 1.25rem;
+        background: #f8f9fa;
+        color: #495057;
+        border: 2px solid transparent;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .orders-header .filters-section .filter-btn:hover {
+        background: #e9ecef;
+        transform: translateY(-2px);
+    }
+
+    .orders-header .filters-section .filter-btn.active {
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        color: white;
+        border-color: #27ae60;
+    }
+
+    .orders-body .orders-item {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+    }
+
+    .orders-body .orders-item .header {
+        display: flex;
+        justify-content: space-between;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #ccc;
+    }
+
+    .orders-body .orders-item .header .order-code {
+        font-weight: bold;
+
+    }
+
+    .orders-body .orders-item .header .order-status {
+        color: #27ae60;
+        font-weight: 300;
+    }
+
+    .orders-body .orders-item .body {
+
+    }
+
+    .orders-body .orders-item .body .order-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #ccc;
+    }
+
+    .orders-body .orders-item .body .order-item .item-image {
+        height: 80px;
+        width: 10%;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .orders-body .orders-item .body .order-item .item-info {
+        width: 80%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .orders-body .orders-item .body .order-item .item-info .title {
+        font-size: 20px;
+    }
+
+    .orders-body .orders-item .body .order-item .item-info .quantity {
+        color: #757575;
+    }
+
+    .orders-body .orders-item .body .order-item .item-amount {
+        width: 10%;
+        color: #27ae60;
+        font-weight: 300;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    } 
+
+    .orders-body .orders-item .footer {
+        margin-top: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 20px;
+    }
+
+    .orders-body .orders-item .footer .order-total-amount .total-amount {
+        color: #27ae60;
+        font-size: 20px;
+        font-weight: 600;
+    }
+
+    .orders-body .orders-item .footer .order-btn {
+        display: flex;
+        gap: 10px;
+        
+    }
+
+    .orders-body .orders-item .footer .order-btn button {
+        padding: 0.625rem 1.25rem;
+        background: #f8f9fa;
+        color: #495057;
+        border: 2px solid transparent;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+
+    .orders-body .orders-item .footer .order-btn .order-btn-cancel {
+        background: #27ae60;
+        color: white;
+    }
+
+    .orders-body .orders-item .footer .order-btn .order-btn-cancel:hover {
+        background: #219653;
+        transform: translateY(-2px);
+    }
+
+    .orders-body .orders-item .footer .order-btn .order-btn-detail {
+        border: 1px solid #ccc;
+    }
+
+    .orders-body .orders-item .footer .order-btn .order-btn-detail:hover {
+        background: #e9ecef;
+        transform: translateY(-2px);
     }
 
     .empty-orders {
@@ -71,8 +620,383 @@
         border-radius: 12px;
         font-weight: 600;
     }
+
+
+    /* CSS CHO PHẦN "XEM THÊM" KHI CÓ NHIỀU ITEM */
+    .show-more-btn {
+        margin-top: 10px;
+        background: none;
+        border: none;
+        color: #27ae60;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .show-more-btn:hover {
+        text-decoration: underline;
+    }
+
+
+    /* CSS CHO MODAL XEM CHI TIẾT ĐƠN HÀNG */
+    .modal-backdrop-custom {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 999;
+    }
+
+    .order-detail-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -45%);
+        background: white;
+        width: 90%;
+        max-height: 80%;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 1000;
+        padding: 20px;
+        animation: fadeIn 0.2s ease-in-out;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+
+    .modal-body {
+        margin-top: 15px;
+        
+    }
+
+    .modal-body .modal-info-detail {
+        background: #fffcf5;
+        padding: 10px;
+    }
+
+    .modal-body .modal-info-detail .detail {
+        padding: 50px 200px;
+        display: flex;
+        flex-direction: column;
+        font-size: 15px;
+        justify-content: space-around;
+    }
+
+    .modal-body .modal-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        font-size: 14px;
+    }
+
+    .modal-body .modal-table thead {
+        background: #f5f5f5;
+    }
+
+    .modal-body .modal-table th {
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #ddd;
+        color: #333;
+    }
+
+    .modal-body .modal-table td {
+        padding: 10px;
+        border-bottom: 1px dashed #e0e0e0;
+        color: #444;
+    }
+
+    .modal-body .modal-table th:first-child,
+    .modal-body .modal-table td:first-child {
+        text-align: center;
+        width: 50px;
+        font-weight: 500;
+    }
+
+    .modal-body .modal-table th:nth-child(3),
+    .modal-body .modal-table td:nth-child(3) {
+        text-align: center;
+        width: 100px;
+    }
+
+    .modal-body .modal-table th:nth-child(4),
+    .modal-body .modal-table td:nth-child(4) {
+        text-align: center;
+        width: 100px;
+    }
+
+    .modal-body .modal-table th:nth-child(5),
+    .modal-body .modal-table td:nth-child(5) {
+        text-align: right;
+        width: 140px;
+        font-weight: 500;
+        color: #27ae60;
+    }
+
+    .modal-body .modal-table tbody tr:hover {
+        background: #f9f9f9;
+    }
+
+    .modal-body .modal-final-amount {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .modal-body .modal-final-amount .detail-amount {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-footer {
+        padding-top: 20px;
+        border-top: 1px solid #757575;
+        margin-top: 30px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+
+    
+    .order-btn-detail {
+        padding: 0.625rem 1.25rem;
+        background: #f8f9fa;
+        color: #495057;
+        border: 2px solid transparent;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid #757575;
+    }
+
+    .order-btn-detail:hover {
+        background: #e9ecef;
+        transform: translateY(-2px);
+    }
+
+    /* CUSTOM VIỀN */
+    .airmail-border {
+        position: relative;
+        padding-bottom: 16px;
+    }
+
+    .airmail-border::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 4px; 
+
+        background: repeating-linear-gradient(
+            90deg,
+            #4a90e2 0px,
+            #4a90e2 28px,
+            transparent 28px,
+            transparent 40px,
+            #f56a79 40px,
+            #f56a79 68px,
+            transparent 68px,
+            transparent 80px
+        );
+
+        pointer-events: none;
+    }
+
+
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translate(-50%, -55%); }
+        to { opacity: 1; transform: translate(-50%, -50%); }
+    }
+
 </style>
 
 @code {
-    // TODO: Load orders from API
+    // LOGIC MAIN
+    private List<OrderDto> orders = new();
+    private List<OrderDto> filteredOrders = new();
+    private List<OrderDto> paginatedOrders = new();
+    private bool isLoading = true;
+    private string? selectedCategoryName = null;
+    private string searchKeyword = "";
+    private System.Threading.Timer? searchTimer;
+    private CustomerInfo customer = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var json = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
+            if (!string.IsNullOrEmpty(json))
+            {
+                customer = JsonSerializer.Deserialize<CustomerInfo>(json);
+            }
+            orders = await OrderService.GetOnlineOrdersByCustomerIdAsync();
+            foreach (var order in orders)
+            {
+                // Gắn chi tiết sản phẩm vào order theo order_id
+                order.OrderItems = (await OrderService
+                    .GetOrderItemWithProductAsync(order.OrderId))
+                    .ToList();
+
+            }
+            filteredOrders = orders;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading orders: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void FilterByCategory(string? categoryName)
+    {
+        selectedCategoryName = categoryName;
+        ApplyFilters();
+    }
+
+    private void OnSearchKeyup()
+    {
+        searchTimer?.Dispose();
+        searchTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                ApplyFilters();
+                StateHasChanged();
+            });
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private void ApplyFilters()
+    {
+        filteredOrders = orders;
+        
+
+        // Filter by category name
+        if (!string.IsNullOrEmpty(selectedCategoryName))
+        {
+            filteredOrders = filteredOrders
+                .Where(o => o.Status == selectedCategoryName)
+                .ToList();
+        }
+
+        // Filter by search keyword
+        if (!string.IsNullOrWhiteSpace(searchKeyword))
+        {
+            var keyword = searchKeyword.ToLower();
+            filteredOrders = filteredOrders
+                .Where(o => 
+                    (int.TryParse(keyword, out int id) && o.OrderId == id) ||
+                    (o.Status?.ToLower().Contains(keyword) ?? false)
+                )
+                .ToList();
+        }
+
+    }
+
+    // LOGIC "XEM THÊM" KHI CÓ NHIỀU ITEM 
+    private Dictionary<int, bool> expandOrderItems = new();
+
+    private void ToggleExpand(int orderId)
+    {
+        if (expandOrderItems.ContainsKey(orderId))
+        {
+            expandOrderItems[orderId] = !expandOrderItems[orderId];
+        }
+        else
+        {
+            expandOrderItems.Add(orderId, true);
+        }
+    }
+
+
+    // LOGIC CHO MODAL XEM CHI TIẾT ĐƠN HÀNG
+    private bool isShowDetailModal = false;
+    private OrderDto? selectedOrder = null;
+
+    private void OpenOrderDetail(OrderDto order)
+    {
+        selectedOrder = order;
+        isShowDetailModal = true;
+    }
+
+    private void CloseOrderDetail()
+    {
+        isShowDetailModal = false;
+        selectedOrder = null;
+    }
+
+    // LOGIC CHO MODAL HỦY ĐƠN HÀNG
+    private bool ShowConfirm = false;
+    private bool Canceling = false;
+    private string? CancelError;
+
+    private async Task DoCancel()
+    {
+        Canceling = true;
+        CancelError = null;
+        StateHasChanged(); // Hàm render giao diện ngay lập tức
+
+        try
+        {
+            if(selectedOrder != null)
+            {
+                
+                var result  = await OrderService.UpdateOrderAndBillStatusAsync(selectedOrder.OrderId, "canceled", "cancelled");
+                if(result)
+                {
+                    await LoadData();
+                    FilterByCategory("pending");
+                    ShowConfirm = false;
+                }
+                else
+                {
+                    CancelError = "Lỗi hủy đơn hàng!";
+                }
+            }
+
+            ShowConfirm = false; 
+        }
+        catch (Exception ex)
+        {
+            CancelError = "Hủy đơn thất bại!";
+        }
+        finally
+        {
+            Canceling = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseConfirm()
+    {
+        ShowConfirm = false;
+        CancelError = null;
+    }
+
+    public void OpenConfirm(OrderDto order)
+    {
+        selectedOrder = order;
+        ShowConfirm = true;
+    }
 }

@@ -17,5 +17,6 @@ builder.Services.AddScoped(sp => new HttpClient
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IApiService, ApiService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 await builder.Build().RunAsync();
