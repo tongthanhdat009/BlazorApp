@@ -2,6 +2,7 @@
 @layout CustomerLayout
 @using BlazorApp.Services
 @using BlazorApp.Dto
+@inject IApiService ApiService
 @inject IAuthService AuthService
 @inject IProductService ProductService
 @inject NavigationManager Navigation
@@ -393,32 +394,44 @@
         }
     }
 
-    private async Task HandleAddToCart()
+   private async Task HandleAddToCart()
+{
+    if (!await AuthService.IsAuthenticatedAsync())
     {
-        if (!await AuthService.IsAuthenticatedAsync())
-        {
-            Navigation.NavigateTo($"/login?returnUrl=/products/{ProductId}", true);
-            return;
-        }
-
-        // TODO: Implement add to cart logic
-        Console.WriteLine($"Thêm sản phẩm {ProductId} vào giỏ hàng");
-        Navigation.NavigateTo("/cart");
+        Navigation.NavigateTo($"/login?returnUrl=/products/{ProductId}", true);
+        return;
     }
 
-    private async Task HandleBuyNow()
-    {
-        if (!await AuthService.IsAuthenticatedAsync())
-        {
-            Navigation.NavigateTo($"/login?returnUrl=/products/{ProductId}", true);
-            return;
-        }
+    var currentUser = await AuthService.GetCurrentUserAsync();
+    if (currentUser == null) return;
 
-        // TODO: Implement buy now logic
-        Console.WriteLine($"Mua ngay sản phẩm {ProductId}");
-        // Add to cart and go to checkout
-        Navigation.NavigateTo("/cart");
+    int customerId = currentUser.CustomerId;
+
+    var body = new { ProductId = ProductId, Quantity = 1 };
+    await ApiService.PostAsync<object, object>($"api/cart/{customerId}/items", body);
+
+    Navigation.NavigateTo("/cart");
+}
+
+private async Task HandleBuyNow()
+{
+    if (!await AuthService.IsAuthenticatedAsync())
+    {
+        Navigation.NavigateTo($"/login?returnUrl=/products/{ProductId}", true);
+        return;
     }
+
+    var currentUser = await AuthService.GetCurrentUserAsync();
+    if (currentUser == null) return;
+
+    int customerId = currentUser.CustomerId;
+
+    var body = new { ProductId = ProductId, Quantity = 1 };
+    await ApiService.PostAsync<object, object>($"api/cart/{customerId}/items", body);
+
+    Navigation.NavigateTo("/checkout");
+}
+
 
     private string GetProductCode(int productId)
     {

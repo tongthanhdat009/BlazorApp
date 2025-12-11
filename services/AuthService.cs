@@ -14,6 +14,7 @@ namespace BlazorApp.Services
         Task<CustomerInfo?> GetCurrentUserAsync();
         Task<string?> GetTokenAsync();
         Task<bool> IsAuthenticatedAsync();
+        
     }
 
     public class AuthService : IAuthService
@@ -145,5 +146,7 @@ namespace BlazorApp.Services
                     new AuthenticationHeaderValue("Bearer", token);
             }
         }
+
+        
     }
 }
