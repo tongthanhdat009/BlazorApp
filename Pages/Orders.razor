@@ -119,16 +119,16 @@
                         {
                             <div class="order-item">
                                 <div class="item-image">
-                                    @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                    @* @if (!string.IsNullOrEmpty(item.ImageUrl))
                                     {
                                         <img src="@item.ImageUrl" alt="@item.ProductName" />
                                     }
                                     else
-                                    {
+                                    { *@
                                         <div class="no-image">
                                             <i class="bi bi-image"></i>
                                         </div>
-                                    }
+                                    @* } *@
                                 </div>
 
                                 <div class="item-info">

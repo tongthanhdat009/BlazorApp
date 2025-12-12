@@ -1,5 +1,10 @@
 @page "/cart"
 @layout CustomerLayout
+@using BlazorApp.Dto
+@using BlazorApp.Services
+@inject IApiService ApiService
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
 
 <PageTitle>Giỏ hàng</PageTitle>
 
@@ -11,68 +16,125 @@
         </h1>
     </div>
 
-    <div class="empty-cart">
-        <div class="empty-icon">
-            <i class="bi bi-cart-x"></i>
+    @if (isLoading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-success" role="status"></div>
         </div>
-        <h3>Giỏ hàng trống</h3>
-        <p class="text-muted">Hãy thêm sản phẩm vào giỏ hàng để tiếp tục mua sắm</p>
-        <a href="/products" class="btn btn-success btn-lg">
-            <i class="bi bi-grid-3x3-gap-fill me-2"></i>
-            Khám phá sản phẩm
-        </a>
-    </div>
+    }
+    else if (items == null || !items.Any())
+    {
+        <div class="empty-cart">
+            <div class="empty-icon">
+                <i class="bi bi-cart-x"></i>
+            </div>
+            <h3>Giỏ hàng trống</h3>
+            <p class="text-muted">Hãy thêm sản phẩm vào giỏ hàng để tiếp tục mua sắm</p>
+            <a href="/products" class="btn btn-success btn-lg">
+                <i class="bi bi-grid-3x3-gap-fill me-2"></i>
+                Khám phá sản phẩm
+            </a>
+        </div>
+    }
+    else
+    {
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th style="width:100px">Hình</th>
+                    <th>Sản phẩm</th>
+                    <th>Giá</th>
+                    <th style="width:140px">Số lượng</th>
+                    <th>Tạm tính</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in items)
+                {
+                    <tr>
+                        <td>
+                            <img src="@(!string.IsNullOrEmpty(item.ImageUrl) ? item.ImageUrl : "/images/no-image.png")"
+                                 width="80" class="rounded" />
+                        </td>
+                        <td>@item.Product?.ProductName</td>
+                        <td>@item.Price.ToString("N0") đ</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeQty(item, item.Quantity - 1)">-</button>
+                                <input class="form-control text-center" style="width:70px" type="number" min="1"
+                                       value="@item.Quantity"
+                                       @onchange="(e) => OnQtyInputChanged(item, e.Value?.ToString())" />
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeQty(item, item.Quantity + 1)">+</button>
+                            </div>
+                        </td>
+                        <td>@item.Subtotal.ToString("N0") đ</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" @onclick="() => Remove(item.ProductId)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="text-end mt-4">
+            <h3>Tổng: @total.ToString("N0") đ</h3>
+            <a href="/checkout" class="btn btn-success btn-lg mt-3">Thanh toán</a>
+        </div>
+    }
 </div>
 
-<style>
-    .cart-container {
-        max-width: 1000px;
-        margin: 0 auto;
-    }
-
-    .cart-header {
-        text-align: center;
-        margin-bottom: 3rem;
-    }
-
-    .cart-header h1 {
-        color: #2c3e50;
-        font-weight: 700;
-    }
-
-    .empty-cart {
-        background: white;
-        border-radius: 20px;
-        padding: 4rem 2rem;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    }
-
-    .empty-icon {
-        font-size: 6rem;
-        color: #95a5a6;
-        margin-bottom: 1.5rem;
-    }
-
-    .empty-cart h3 {
-        color: #2c3e50;
-        margin-bottom: 1rem;
-    }
-
-    .empty-cart p {
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-    }
-
-    .btn-success {
-        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
-        border: none;
-        padding: 0.875rem 2rem;
-        border-radius: 12px;
-        font-weight: 600;
-    }
-</style>
-
 @code {
-    // TODO: Load cart items from API
+    List<CartItemDto> items = new();
+    bool isLoading = true;
+    decimal total = 0m;
+    int customerId;
+    string? checkoutError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await AuthService.GetCurrentUserAsync();
+        if (user != null)
+        {
+            customerId = user.CustomerId;
+            await LoadCart();
+        }
+        else
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private async Task LoadCart()
+    {
+        isLoading = true;
+        items = await ApiService.GetAsync<List<CartItemDto>>($"api/cart/{customerId}/items") ?? new List<CartItemDto>();
+        total = items.Sum(i => i.Subtotal);
+        isLoading = false;
+    }
+
+    private async Task ChangeQty(CartItemDto item, int newQty)
+    {
+        if (newQty < 1) return;
+        var body = new { Quantity = newQty };
+        await ApiService.PutAsync<object, object>($"api/cart/{customerId}/items/{item.ProductId}", body);
+        await LoadCart();
+    }
+
+    private async Task OnQtyInputChanged(CartItemDto item, string? value)
+    {
+        if (int.TryParse(value, out int qty) && qty >= 1)
+        {
+            await ChangeQty(item, qty);
+        }
+    }
+
+    private async Task Remove(int productId)
+    {
+        var ok = await ApiService.DeleteAsync($"api/cart/{customerId}/items/{productId}");
+        if (ok)
+            await LoadCart();
+    }
 }
