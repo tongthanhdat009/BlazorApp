@@ -31,7 +31,7 @@
                        @onkeyup="OnSearchKeyup" />
             </div>
             <!-- Category Filters -->
-            <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 mb-4">
                 <button class="btn @(string.IsNullOrEmpty(selectedCategoryName) ? "btn-success" : "btn-outline-secondary") rounded-pill px-3" 
                         @onclick="() => FilterByCategory(null)">
                     Tất cả
@@ -43,6 +43,60 @@
                         @category.CategoryName
                     </button>
                 }
+            </div>
+
+            <!-- Price Range Slider -->
+            <div class="border-top pt-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <label class="fw-semibold text-dark mb-0">
+                        <i class="bi bi-cash-stack me-2 text-success"></i>
+                        Khoảng giá
+                    </label>
+                    @if (minPrice != globalMinPrice || maxPrice != globalMaxPrice)
+                    {
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill" @onclick="ResetPriceFilter">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Đặt lại
+                        </button>
+                    }
+                </div>
+                
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="bi bi-currency-dollar text-success"></i>
+                            </span>
+                            <input type="number" class="form-control border-start-0" 
+                                   placeholder="Tối thiểu"
+                                   @bind="minPrice" 
+                                   @bind:event="oninput"
+                                   @onchange="OnPriceChanged"
+                                   min="@globalMinPrice" 
+                                   max="@maxPrice" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="bi bi-currency-dollar text-success"></i>
+                            </span>
+                            <input type="number" class="form-control border-start-0" 
+                                   placeholder="Tối đa"
+                                   @bind="maxPrice" 
+                                   @bind:event="oninput"
+                                   @onchange="OnPriceChanged"
+                                   min="@minPrice" 
+                                   max="@globalMaxPrice" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-success w-100 rounded-3" @onclick="ApplyFilters">
+                            <i class="bi bi-funnel me-2"></i>
+                            Áp dụng
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -247,6 +301,10 @@
         border-color: #2ecc71;
         box-shadow: 0 0 0 0.25rem rgba(46, 204, 113, 0.15);
     }
+
+    .input-group-text {
+        background-color: #f8f9fa;
+    }
 </style>
 
 @code {
@@ -258,6 +316,12 @@
     private string searchKeyword = "";
     private string? selectedCategoryName = null;
     private System.Threading.Timer? searchTimer;
+    
+    // Price Range
+    private decimal minPrice = 0;
+    private decimal maxPrice = 10000000;
+    private decimal globalMinPrice = 0;
+    private decimal globalMaxPrice = 10000000;
     
     // Pagination
     private int currentPage = 1;
@@ -274,8 +338,21 @@
         isLoading = true;
         try
         {
-            products = await ProductService.GetAllProductsAsync();
+            var allProducts = await ProductService.GetAllProductsAsync();
+            // Filter out deleted products
+            products = allProducts.Where(p => !p.Deleted).ToList();
+            
             categories = await ProductService.GetAllCategoriesAsync();
+            
+            // Calculate global min/max prices from available products
+            if (products.Any())
+            {
+                globalMinPrice = products.Min(p => p.Price);
+                globalMaxPrice = products.Max(p => p.Price);
+                minPrice = globalMinPrice;
+                maxPrice = globalMaxPrice;
+            }
+            
             filteredProducts = products;
             UpdatePagination();
         }
@@ -330,6 +407,11 @@
                 .ToList();
         }
 
+        // Filter by price range
+        filteredProducts = filteredProducts
+            .Where(p => p.Price >= minPrice && p.Price <= maxPrice)
+            .ToList();
+
         // Sort: In stock items first, then out of stock
         filteredProducts = filteredProducts
             .OrderByDescending(p => p.IsInStock)
@@ -365,6 +447,23 @@
     private void ViewProduct(int productId)
     {
         Navigation.NavigateTo($"/products/{productId}");
+    }
+
+    private void OnPriceChanged()
+    {
+        // Ensure min is not greater than max
+        if (minPrice > maxPrice)
+        {
+            minPrice = maxPrice;
+        }
+        StateHasChanged();
+    }
+
+    private void ResetPriceFilter()
+    {
+        minPrice = globalMinPrice;
+        maxPrice = globalMaxPrice;
+        ApplyFilters();
     }
 
     public void Dispose()
