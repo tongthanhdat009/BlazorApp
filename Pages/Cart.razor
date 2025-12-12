@@ -4,14 +4,15 @@
 @using BlazorApp.Services
 @inject IApiService ApiService
 @inject IAuthService AuthService
+@inject IInventoryService InventoryService
 @inject NavigationManager Navigation
 
 <PageTitle>Giỏ hàng</PageTitle>
 
-<div class="cart-container">
-    <div class="cart-header">
-        <h1>
-            <i class="bi bi-cart3 me-3"></i>
+<div class="container my-5" style="max-width: 1200px;">
+    <div class="mb-4">
+        <h1 class="fw-bold text-dark">
+            <i class="bi bi-cart3 me-3 text-success"></i>
             Giỏ hàng của bạn
         </h1>
     </div>
@@ -24,13 +25,13 @@
     }
     else if (items == null || !items.Any())
     {
-        <div class="empty-cart">
-            <div class="empty-icon">
-                <i class="bi bi-cart-x"></i>
+        <div class="card border-1 shadow-sm text-center p-5">
+            <div class="mb-4">
+                <i class="bi bi-cart-x text-muted" style="font-size: 5rem;"></i>
             </div>
-            <h3>Giỏ hàng trống</h3>
-            <p class="text-muted">Hãy thêm sản phẩm vào giỏ hàng để tiếp tục mua sắm</p>
-            <a href="/products" class="btn btn-success btn-lg">
+            <h3 class="mb-3">Giỏ hàng trống</h3>
+            <p class="text-muted mb-4">Hãy thêm sản phẩm vào giỏ hàng để tiếp tục mua sắm</p>
+            <a href="/products" class="btn btn-success btn-lg px-5">
                 <i class="bi bi-grid-3x3-gap-fill me-2"></i>
                 Khám phá sản phẩm
             </a>
@@ -38,57 +39,127 @@
     }
     else
     {
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th style="width:100px">Hình</th>
-                    <th>Sản phẩm</th>
-                    <th>Giá</th>
-                    <th style="width:140px">Số lượng</th>
-                    <th>Tạm tính</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in items)
-                {
-                    <tr>
-                        <td>
-                            <img src="@(!string.IsNullOrEmpty(item.ImageUrl) ? item.ImageUrl : "/images/no-image.png")"
-                                 width="80" class="rounded" />
-                        </td>
-                        <td>@item.Product?.ProductName</td>
-                        <td>@item.Price.ToString("N0") đ</td>
-                        <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeQty(item, item.Quantity - 1)">-</button>
-                                <input class="form-control text-center" style="width:70px" type="number" min="1"
-                                       value="@item.Quantity"
-                                       @onchange="(e) => OnQtyInputChanged(item, e.Value?.ToString())" />
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeQty(item, item.Quantity + 1)">+</button>
-                            </div>
-                        </td>
-                        <td>@item.Subtotal.ToString("N0") đ</td>
-                        <td>
-                            <button class="btn btn-danger btn-sm" @onclick="() => Remove(item.ProductId)">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="card border-1 shadow-sm rounded-4">
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:100px" class="border-0">Hình</th>
+                                <th class="border-0">Sản phẩm</th>
+                                <th class="border-0">Giá</th>
+                                <th style="width:180px" class="border-0">Số lượng</th>
+                                <th class="border-0">Tạm tính</th>
+                                <th class="border-0"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in items)
+                            {
+                                <tr>
+                                    <td>
+                                        <img src="@(!string.IsNullOrEmpty(item.ImageUrl) ? item.ImageUrl : "/images/no-image.png")"
+                                             width="80" class="rounded shadow-sm" />
+                                    </td>
+                                    <td class="fw-semibold">@item.Product?.ProductName</td>
+                                    <td class="text-success fw-semibold">@item.Price.ToString("N0") đ</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button class="btn btn-outline-success btn-sm" @onclick="() => ChangeQty(item, item.Quantity - 1)">
+                                                <i class="bi bi-dash"></i>
+                                            </button>
+                                            <input class="form-control text-center fw-bold" style="width:70px" type="number" min="1"
+                                                   value="@item.Quantity"
+                                                   @onchange="(e) => OnQtyInputChanged(item, e.Value?.ToString())" />
+                                            <button class="btn btn-outline-success btn-sm" @onclick="() => ChangeQty(item, item.Quantity + 1)">
+                                                <i class="bi bi-plus"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td class="text-success fw-bold fs-5">@item.Subtotal.ToString("N0") đ</td>
+                                    <td>
+                                        <button class="btn btn-outline-danger btn-sm" @onclick="() => Remove(item.ProductId)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-        <div class="text-end mt-4">
-            <h3>Tổng: @total.ToString("N0") đ</h3>
-            <a href="/checkout" class="btn btn-success btn-lg mt-3">Thanh toán</a>
+        <div class="card border-1 shadow-sm rounded-4 mt-4">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="mb-0 fw-bold text-dark">Tổng cộng:</h3>
+                    <h2 class="mb-0 fw-bold text-success">@total.ToString("N0") đ</h2>
+                </div>
+                
+                @if (!string.IsNullOrEmpty(checkoutError))
+                {
+                    <div class="alert alert-danger border-0 shadow-sm" role="alert">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                            <div>
+                                <strong>Không thể thanh toán!</strong>
+                                <div class="mt-2">@((MarkupString)checkoutError)</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                
+                <button class="btn btn-success btn-lg w-100 py-3 mt-3 fw-bold" @onclick="HandleCheckoutClick" disabled="@isValidating">
+                    @if (isValidating)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        <span>Đang kiểm tra tồn kho...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-credit-card me-2"></i>
+                        <span>Tiến hành thanh toán</span>
+                    }
+                </button>
+            </div>
         </div>
     }
 </div>
 
+<style>
+    .btn-success {
+        background-color: #2ecc71;
+        border-color: #27ae60;
+    }
+
+    .btn-success:hover,
+    .btn-success:focus {
+        background-color: #27ae60;
+        border-color: #229954;
+    }
+
+    .btn-outline-success {
+        color: #2ecc71;
+        border-color: #2ecc71;
+    }
+
+    .btn-outline-success:hover,
+    .btn-outline-success:focus {
+        background-color: #2ecc71;
+        border-color: #2ecc71;
+        color: white;
+    }
+
+    .text-success {
+        color: #2ecc71 !important;
+    }
+</style>
+
 @code {
     List<CartItemDto> items = new();
     bool isLoading = true;
+    bool isValidating = false;
     decimal total = 0m;
     int customerId;
     string? checkoutError;
@@ -112,6 +183,7 @@
         isLoading = true;
         items = await ApiService.GetAsync<List<CartItemDto>>($"api/cart/{customerId}/items") ?? new List<CartItemDto>();
         total = items.Sum(i => i.Subtotal);
+        checkoutError = null; // Clear error when cart changes
         isLoading = false;
     }
 
@@ -136,5 +208,61 @@
         var ok = await ApiService.DeleteAsync($"api/cart/{customerId}/items/{productId}");
         if (ok)
             await LoadCart();
+    }
+
+    private async Task HandleCheckoutClick()
+    {
+        checkoutError = null;
+        isValidating = true;
+
+        try
+        {
+            // Prepare validation request
+            var request = new ValidateCartStockRequest
+            {
+                Items = items.Select(i => new CartItemStockRequest
+                {
+                    ProductId = i.ProductId,
+                    Quantity = i.Quantity
+                }).ToList()
+            };
+
+            // Validate stock
+            var response = await InventoryService.ValidateCartStockAsync(request);
+
+            if (response == null)
+            {
+                checkoutError = "Không thể kiểm tra tồn kho. Vui lòng thử lại.";
+                return;
+            }
+
+            if (response.IsValid)
+            {
+                // Stock is valid, navigate to checkout
+                Navigation.NavigateTo("/checkout");
+            }
+            else
+            {
+                // Build error message
+                var errorList = new System.Text.StringBuilder();
+                errorList.Append("<ul class='mb-0'>");
+                foreach (var product in response.OutOfStockProducts)
+                {
+                    errorList.Append($"<li><strong>{product.ProductName}</strong>: ");
+                    errorList.Append($"Bạn muốn mua {product.RequestedQuantity}, ");
+                    errorList.Append($"nhưng chỉ còn {product.AvailableQuantity} sản phẩm trong kho.</li>");
+                }
+                errorList.Append("</ul>");
+                checkoutError = errorList.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            checkoutError = $"Lỗi khi kiểm tra tồn kho: {ex.Message}";
+        }
+        finally
+        {
+            isValidating = false;
+        }
     }
 }

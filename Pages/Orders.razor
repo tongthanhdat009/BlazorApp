@@ -848,14 +848,14 @@
                 customer = JsonSerializer.Deserialize<CustomerInfo>(json);
             }
             orders = await OrderService.GetOnlineOrdersByCustomerIdAsync();
-            foreach (var order in orders)
+            @* foreach (var order in orders)
             {
                 // Gắn chi tiết sản phẩm vào order theo order_id
                 order.OrderItems = (await OrderService
                     .GetOrderItemWithProductAsync(order.OrderId))
                     .ToList();
 
-            }
+            } *@
             filteredOrders = orders;
         }
         catch (Exception ex)

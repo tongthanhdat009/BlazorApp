@@ -12,8 +12,13 @@
 
 <PageTitle>Thanh toán</PageTitle>
 
-<div class="checkout-container">
-    <h2>Thanh toán đơn hàng</h2>
+<div class="container my-5" style="max-width: 1000px;">
+    <div class="mb-4">
+        <h1 class="fw-bold text-dark">
+            <i class="bi bi-credit-card me-3 text-success"></i>
+            Thanh toán đơn hàng
+        </h1>
+    </div>
 
     @if (isLoading)
     {
@@ -23,99 +28,144 @@
     }
     else if (order == null)
     {
-        <div class="alert alert-warning">
+        <div class="alert alert-warning border-0 shadow-sm">
+            <i class="bi bi-exclamation-triangle me-2"></i>
             Giỏ hàng trống hoặc không thể tạo đơn hàng.
         </div>
         @if (!string.IsNullOrEmpty(message))
         {
-            <div class="alert alert-danger mt-2">@message</div>
+            <div class="alert alert-danger border-0 shadow-sm mt-2">
+                <i class="bi bi-x-circle me-2"></i>
+                @message
+            </div>
         }
     }
     else
     {
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Hình</th>
-                    <th>Sản phẩm</th>
-                    <th>Giá</th>
-                    <th>Số lượng</th>
-                    <th>Tạm tính</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in order.OrderItems)
-                {
-                    <tr>
-                        <td>
-                            <img src="@(!string.IsNullOrEmpty(item.ProductName) ? $"/images/{item.ProductName}.png" : "/images/no-image.png")"
-                                 width="80" class="rounded" />
-                        </td>
-                        <td>@item.ProductName</td>
-                        <td>@item.Price.ToString("N0") đ</td>
-                        <td>@item.Quantity</td>
-                        <td>@(item.Subtotal != 0 ? item.Subtotal.ToString("N0") : (item.Price * item.Quantity).ToString("N0")) đ</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-
-        <div class="mt-3">
-            <label>Nhập mã khuyến mãi:</label>
-            <div class="d-flex">
-                <input class="form-control me-2" @bind="promoCode" placeholder="Nhập mã promo" />
-                <button class="btn btn-primary me-2" @onclick="ApplyPromo" disabled="@isApplyingPromo">
-                    @if (isApplyingPromo)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                        <span>Đang áp dụng...</span>
-                    }
-                    else
-                    {
-                        <span>Áp dụng</span>
-                    }
-                </button>
-                <button class="btn btn-outline-secondary" @onclick="RemovePromo"  disabled="@(isApplyingPromo || discountAmount == 0)">
-                    Hủy áp dụng
-                </button>
+        <!-- Order Items -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-light border-0 py-3">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-bag-check text-success me-2"></i>
+                    Chi tiết đơn hàng
+                </h5>
             </div>
-            @if (discountAmount > 0)
-            {
-                <div class="mt-2">Giảm: @discountAmount.ToString("N0") đ</div>
-            }
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:80px" class="border-0">Hình</th>
+                                <th class="border-0">Sản phẩm</th>
+                                <th class="border-0">Giá</th>
+                                <th class="border-0">Số lượng</th>
+                                <th class="border-0">Tạm tính</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in order.OrderItems)
+                            {
+                                <tr>
+                                    <td>
+                                        <img src="@(!string.IsNullOrEmpty(item.ProductName) ? $"/images/{item.ProductName}.png" : "/images/no-image.png")"
+                                             width="60" class="rounded shadow-sm" />
+                                    </td>
+                                    <td class="fw-semibold">@item.ProductName</td>
+                                    <td class="text-success fw-semibold">@item.Price.ToString("N0") đ</td>
+                                    <td class="fw-bold">@item.Quantity</td>
+                                    <td class="text-success fw-bold">@(item.Subtotal != 0 ? item.Subtotal.ToString("N0") : (item.Price * item.Quantity).ToString("N0")) đ</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
-        <div class="text-end mt-3">
-            <h3>Tổng cần thanh toán: @finalAmount.ToString("N0") đ</h3>
-        </div>
-
-        <div class="mt-4">
-            <label>Chọn phương thức thanh toán:</label>
-            <select class="form-select" @bind="paymentMethod">
-                <option value="cash">Tiền mặt</option>
-                <option value="e-wallet">Ví điện tử</option>
-            </select>
-        </div>
-
-        <div class="mt-3 d-flex gap-2 justify-content-end">
-            <button class="btn btn-secondary" @onclick="CancelCheckout" disabled="@isPaying">Hủy</button>
-            <button class="btn btn-success btn-lg" @onclick="PayOrder" disabled="@isPaying">
-                @if (isPaying)
+        <!-- Promotion Code -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3">
+                    <i class="bi bi-ticket-perforated text-success me-2"></i>
+                    Mã khuyến mãi
+                </h5>
+                <div class="d-flex gap-2">
+                    <input class="form-control form-control-lg" @bind="promoCode" placeholder="Nhập mã khuyến mãi" />
+                    <button class="btn btn-success px-4" @onclick="ApplyPromo" disabled="@isApplyingPromo">
+                        @if (isApplyingPromo)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Đang áp dụng...</span>
+                        }
+                        else
+                        {
+                            <span>Áp dụng</span>
+                        }
+                    </button>
+                    <button class="btn btn-outline-secondary" @onclick="RemovePromo" disabled="@(isApplyingPromo || discountAmount == 0)">
+                        Hủy
+                    </button>
+                </div>
+                @if (discountAmount > 0)
                 {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                    <span>Đang xử lý...</span>
+                    <div class="mt-3 alert alert-success border-0 shadow-sm">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        Giảm giá: <strong>@discountAmount.ToString("N0") đ</strong>
+                    </div>
                 }
-                else
-                {
-                    <span>Thanh toán</span>
-                }
-            </button>
+            </div>
         </div>
 
-        @if (!string.IsNullOrEmpty(message))
-        {
-            <div class="alert alert-info mt-3">@message</div>
-        }
+        <!-- Payment Method -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3">
+                    <i class="bi bi-wallet2 text-success me-2"></i>
+                    Phương thức thanh toán
+                </h5>
+                <select class="form-select form-select-lg" @bind="paymentMethod">
+                    <option value="cash">💵 Tiền mặt</option>
+                    <option value="e-wallet">💳 Ví điện tử</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Total & Checkout -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0 fw-bold text-dark">Tổng cần thanh toán:</h4>
+                    <h2 class="mb-0 fw-bold text-success">@finalAmount.ToString("N0") đ</h2>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary btn-lg flex-fill" @onclick="CancelCheckout" disabled="@isPaying">
+                        <i class="bi bi-x-circle me-2"></i>
+                        Hủy
+                    </button>
+                    <button class="btn btn-success btn-lg flex-fill" @onclick="PayOrder" disabled="@isPaying">
+                        @if (isPaying)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Đang xử lý...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-check-circle me-2"></i>
+                            <span>Xác nhận thanh toán</span>
+                        }
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(message))
+                {
+                    <div class="alert alert-info border-0 shadow-sm mt-3 mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        @message
+                    </div>
+                }
+            </div>
+        </div>
     }
 </div>
 
@@ -247,9 +297,8 @@
                 var createdOrder = await OrderService.CheckoutFromCartAsync(request);
                 if (createdOrder != null)
                 {
-                    message = $"Thanh toán thành công! Mã Order: {createdOrder.OrderId}";
-                    // update local order to reflect created order
-                    order = createdOrder;
+                    // Navigate to success page
+                    Navigation.NavigateTo($"/payment-success/{createdOrder.OrderId}");
                 }
                 else
                 {
@@ -301,3 +350,34 @@
         Navigation.NavigateTo("/cart");
     }
 }
+<style>
+    .btn-success {
+        background-color: #2ecc71;
+        border-color: #27ae60;
+    }
+
+    .btn-success:hover,
+    .btn-success:focus {
+        background-color: #27ae60;
+        border-color: #229954;
+    }
+
+    .btn-primary {
+        background-color: #2ecc71;
+        border-color: #27ae60;
+    }
+
+    .btn-primary:hover,
+    .btn-primary:focus {
+        background-color: #27ae60;
+        border-color: #229954;
+    }
+
+    .text-success {
+        color: #2ecc71 !important;
+    }
+
+    .bg-light {
+        background-color: #f8f9fa !important;
+    }
+</style>

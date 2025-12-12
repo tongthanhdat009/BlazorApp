@@ -7,7 +7,7 @@ namespace BlazorApp.Dto
         public string? Status { get; set; }
         public int? PromoId { get; set; }
         public DateTime OrderDate { get; set; }
-        public List<OrderItemWithProductDto> OrderItems { get; set; } = new();
+        public List<OrderItemDto> OrderItems { get; set; } = new();
         public decimal TotalAmount { get; set; }
         public decimal DiscountAmount { get; set; }
         public string? OrderType { get; set; }
