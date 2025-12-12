@@ -39,6 +39,26 @@
     }
     else
     {
+        @if (deletedProducts.Any())
+        {
+            <div class="alert alert-warning border-0 shadow-sm mb-4" role="alert">
+                <div class="d-flex align-items-start">
+                    <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                    <div>
+                        <strong>⚠️ Sản phẩm đã ngưng bán!</strong>
+                        <div class="mt-2">
+                            <ul class="mb-0">
+                                @foreach (var product in deletedProducts)
+                                {
+                                    <li><strong>@product.ProductName</strong> - Vui lòng xóa khỏi giỏ hàng để tiếp tục mua hàng.</li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        
         <div class="card border-1 shadow-sm rounded-4">
             <div class="card-body p-4">
                 <div class="table-responsive">
@@ -56,12 +76,20 @@
                         <tbody>
                             @foreach (var item in items)
                             {
-                                <tr>
+                                var isDeleted = deletedProducts.Any(p => p.ProductId == item.ProductId);
+                                var rowClass = isDeleted ? "table-warning" : "";
+                                <tr class="@rowClass">
                                     <td>
                                         <img src="@(!string.IsNullOrEmpty(item.ImageUrl) ? item.ImageUrl : "/images/no-image.png")"
                                              width="80" class="rounded shadow-sm" />
                                     </td>
-                                    <td class="fw-semibold">@item.Product?.ProductName</td>
+                                    <td class="fw-semibold">
+                                        @item.Product?.ProductName
+                                        @if (deletedProducts.Any(p => p.ProductId == item.ProductId))
+                                        {
+                                            <span class="badge bg-danger ms-2">Ngưng bán</span>
+                                        }
+                                    </td>
                                     <td class="text-success fw-semibold">@item.Price.ToString("N0") đ</td>
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
@@ -163,6 +191,7 @@
     decimal total = 0m;
     int customerId;
     string? checkoutError;
+    List<DeletedProduct> deletedProducts = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -184,7 +213,42 @@
         items = await ApiService.GetAsync<List<CartItemDto>>($"api/cart/{customerId}/items") ?? new List<CartItemDto>();
         total = items.Sum(i => i.Subtotal);
         checkoutError = null; // Clear error when cart changes
+        
+        // Kiễm tra sản phẩm đã bị xóa mềm
+        await CheckDeletedProducts();
+        
         isLoading = false;
+    }
+
+    private async Task CheckDeletedProducts()
+    {
+        deletedProducts.Clear();
+        
+        if (items == null || !items.Any())
+            return;
+
+        try
+        {
+            var request = new ValidateCartStockRequest
+            {
+                Items = items.Select(i => new CartItemStockRequest
+                {
+                    ProductId = i.ProductId,
+                    Quantity = i.Quantity
+                }).ToList()
+            };
+
+            var response = await InventoryService.ValidateCartStockAsync(request);
+            
+            if (response != null && response.DeletedProducts.Any())
+            {
+                deletedProducts = response.DeletedProducts;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking deleted products: {ex.Message}");
+        }
     }
 
     private async Task ChangeQty(CartItemDto item, int newQty)
@@ -246,6 +310,15 @@
                 // Build error message
                 var errorList = new System.Text.StringBuilder();
                 errorList.Append("<ul class='mb-0'>");
+                
+                // Hiển thị sản phẩm đã ngưng bán
+                foreach (var product in response.DeletedProducts)
+                {
+                    errorList.Append($"<li><strong>{product.ProductName}</strong>: ");
+                    errorList.Append($"Sản phẩm đã ngưng bán. Vui lòng xóa khỏi giỏ hàng.</li>");
+                }
+                
+                // Hiển thị sản phẩm hết hàng
                 foreach (var product in response.OutOfStockProducts)
                 {
                     errorList.Append($"<li><strong>{product.ProductName}</strong>: ");

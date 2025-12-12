@@ -25,6 +25,7 @@ namespace BlazorApp.Dto
         public string? ImageUrl { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public bool Deleted { get; set; }
     }
 
     public class CategoryDto
