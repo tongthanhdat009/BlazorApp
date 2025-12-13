@@ -36,6 +36,12 @@ namespace BlazorApp.Dto
         // Optional: frontend-calculated discount amount (backend should always verify/recompute)
         public decimal? DiscountAmount { get; set; }
         public string PaymentMethod { get; set; } = "cash"; // cash hoặc card
+        
+        // Customer information
+        public string? CustomerName { get; set; }
+        public string? CustomerPhone { get; set; }
+        public string? CustomerEmail { get; set; }
+        public string? CustomerAddress { get; set; }
     }
 
 

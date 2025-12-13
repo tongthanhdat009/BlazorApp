@@ -116,6 +116,63 @@
             </div>
         </div>
 
+        <!-- Customer Information -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3">
+                    <i class="bi bi-person-circle text-success me-2"></i>
+                    Thông tin người mua
+                </h5>
+                
+                <!-- Checkbox sử dụng thông tin người dùng -->
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="useUserInfo" @bind="useLoggedInUserInfo" @bind:after="OnUseUserInfoChanged">
+                    <label class="form-check-label" for="useUserInfo">
+                        Sử dụng thông tin tài khoản đang đăng nhập
+                    </label>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Họ tên <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control @(showValidation && string.IsNullOrWhiteSpace(customerName) ? "is-invalid" : "")" 
+                               @bind="customerName" placeholder="Nhập họ tên" />
+                        @if (showValidation && string.IsNullOrWhiteSpace(customerName))
+                        {
+                            <div class="invalid-feedback">Vui lòng nhập họ tên</div>
+                        }
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Số điện thoại <span class="text-danger">*</span></label>
+                        <input type="tel" class="form-control @(showValidation && string.IsNullOrWhiteSpace(customerPhone) ? "is-invalid" : "")" 
+                               @bind="customerPhone" placeholder="Nhập số điện thoại" />
+                        @if (showValidation && string.IsNullOrWhiteSpace(customerPhone))
+                        {
+                            <div class="invalid-feedback">Vui lòng nhập số điện thoại</div>
+                        }
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control @(showValidation && string.IsNullOrWhiteSpace(customerEmail) ? "is-invalid" : "")" 
+                               @bind="customerEmail" placeholder="Nhập email" />
+                        @if (showValidation && string.IsNullOrWhiteSpace(customerEmail))
+                        {
+                            <div class="invalid-feedback">Vui lòng nhập email</div>
+                        }
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Địa chỉ <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control @(showValidation && string.IsNullOrWhiteSpace(customerAddress) ? "is-invalid" : "")" 
+                               @bind="customerAddress" placeholder="Nhập địa chỉ" />
+                        @if (showValidation && string.IsNullOrWhiteSpace(customerAddress))
+                        {
+                            <div class="invalid-feedback">Vui lòng nhập địa chỉ</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Payment Method -->
         <div class="card border-0 shadow-sm rounded-4 mb-4">
             <div class="card-body p-4">
@@ -181,6 +238,15 @@
     private int? appliedPromoId = null;
     private decimal discountAmount = 0;
 
+    // Customer information fields
+    private string customerName = "";
+    private string customerPhone = "";
+    private string customerEmail = "";
+    private string customerAddress = "";
+    private bool useLoggedInUserInfo = false;
+    private bool showValidation = false;
+    private CustomerInfo? currentUser;
+
     private decimal finalAmount => (order?.TotalAmount ?? 0) - discountAmount;
 
     protected override async Task OnInitializedAsync()
@@ -192,7 +258,43 @@
             return;
         }
 
+        currentUser = user;
         await LoadOrderFromCart();
+    }
+
+    private void OnUseUserInfoChanged()
+    {
+        if (useLoggedInUserInfo && currentUser != null)
+        {
+            customerName = currentUser.Name ?? "";
+            customerPhone = currentUser.Phone ?? "";
+            customerEmail = currentUser.Email ?? "";
+            customerAddress = currentUser.Address ?? "";
+        }
+        else
+        {
+            customerName = "";
+            customerPhone = "";
+            customerEmail = "";
+            customerAddress = "";
+        }
+        showValidation = false;
+    }
+
+    private bool ValidateCustomerInfo()
+    {
+        showValidation = true;
+        
+        if (string.IsNullOrWhiteSpace(customerName) ||
+            string.IsNullOrWhiteSpace(customerPhone) ||
+            string.IsNullOrWhiteSpace(customerEmail) ||
+            string.IsNullOrWhiteSpace(customerAddress))
+        {
+            message = "Vui lòng điền đầy đủ thông tin người mua!";
+            return false;
+        }
+
+        return true;
     }
 
     private async Task LoadOrderFromCart()
@@ -280,6 +382,12 @@
     {
         if (order == null) return;
 
+        // Validate customer information first
+        if (!ValidateCustomerInfo())
+        {
+            return;
+        }
+
         isPaying = true;
         message = "";
 
@@ -289,7 +397,11 @@
             var request = new CreateOrderFromCartRequest
             {
                 PaymentMethod = paymentMethod,
-                PromoId = appliedPromoId
+                PromoId = appliedPromoId,
+                CustomerName = customerName,
+                CustomerPhone = customerPhone,
+                CustomerEmail = customerEmail,
+                CustomerAddress = customerAddress
             };
 
             try
