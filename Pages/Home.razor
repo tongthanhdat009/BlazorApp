@@ -2,65 +2,110 @@
 @layout CustomerLayout
 @using BlazorApp.Services
 @using BlazorApp.Dto
+@using Microsoft.JSInterop
 @inject IAuthService AuthService
 @inject IProductService ProductService
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Trang chủ - Store Manager</PageTitle>
 
 <div class="container my-5" style="max-width: 1200px;">
-    <!-- Hero Section -->
-    <section class="card border-1 shadow-sm rounded-4 mb-5">
-        <div class="card-body text-center p-5">
-            <div class="mb-4 hero-icon-animate">
-                <i class="bi bi-house-heart-fill text-success" style="font-size: 4rem;"></i>
+    <!-- Hero Section - Bootstrap Carousel -->
+    <section class="mb-5">
+        <div id="heroCarousel" class="carousel slide rounded-4 shadow-lg overflow-hidden" data-bs-ride="carousel" data-bs-interval="4000" data-bs-wrap="true">
+            <!-- Carousel Indicators -->
+            <div class="carousel-indicators mb-3">
+                <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active rounded-pill" aria-current="true" aria-label="Slide 1"></button>
+                <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" class="rounded-pill" aria-label="Slide 2"></button>
+                <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2" class="rounded-pill" aria-label="Slide 3"></button>
             </div>
-            <h1 class="display-4 fw-bold text-dark mb-3">Chào mừng đến với Store Manager!</h1>
-            <p class="lead text-muted mb-4">Khám phá các sản phẩm tuyệt vời của chúng tôi</p>
-            <a href="/products" class="btn btn-success btn-lg px-5 py-3 rounded-4 fw-bold shadow">
-                <i class="bi bi-shop me-2"></i>
-                Mua sắm ngay
-            </a>
+
+            <!-- Carousel Items -->
+            <div class="carousel-inner">
+                <div class="carousel-item active">
+                    <img src="/banner/banner_1.png" class="d-block w-100 carousel-img" alt="Banner 1">
+                    <div class="carousel-caption d-flex flex-column align-items-start justify-content-end">
+                        <a href="/products" class="btn btn-success btn-lg px-4 py-2 rounded-pill fw-bold shadow-lg">
+                            <i class="bi bi-shop me-2"></i>
+                            Mua sắm ngay
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="carousel-item">
+                    <img src="/banner/banner_2.png" class="d-block w-100 carousel-img" alt="Banner 2">
+                    <div class="carousel-caption d-flex flex-column align-items-start justify-content-end">
+                        <a href="/products" class="btn btn-warning btn-lg px-4 py-2 rounded-pill fw-bold shadow-lg text-white">
+                            <i class="bi bi-fire me-2"></i>
+                            Khám phá ngay
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="carousel-item">
+                    <img src="/banner/banner_3.png" class="d-block w-100 carousel-img" alt="Banner 3">
+                    <div class="carousel-caption d-flex flex-column align-items-start justify-content-end">
+                        <a href="/products" class="btn btn-info btn-lg px-4 py-2 rounded-pill fw-bold shadow-lg text-white">
+                            <i class="bi bi-stars me-2"></i>
+                            Xem sản phẩm
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carousel Controls -->
+            <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Previous</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Next</span>
+            </button>
         </div>
     </section>
 
     <!-- Features Section -->
-    <section class="py-4">
-        <h2 class="text-center fw-bold text-dark mb-5">Tại sao chọn chúng tôi?</h2>
+    <section class="py-5">
+        <h2 class="text-center fw-bold mb-2 section-title christmas-title">
+            🎅 Ưu đãi Giáng Sinh đặc biệt 🎄
+        </h2>
+        <p class="text-center text-muted mb-5">Nhận ngay quà tặng và ưu đãi hấp dẫn mùa lễ hội</p>
         <div class="row g-4">
             <div class="col-md-4">
-                <div class="card border-1 shadow-sm rounded-4 h-100 feature-card-hover">
+                <div class="card border-0 shadow-sm rounded-4 h-100 feature-card-hover christmas-card">
                     <div class="card-body text-center p-4">
-                        <div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-4" 
-                             style="width: 70px; height: 70px; background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
-                            <i class="bi bi-lightning-charge-fill text-white" style="font-size: 2rem;"></i>
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-4" 
+                             style="width: 80px; height: 80px; background: linear-gradient(135deg, #c41e3a 0%, #a01729 100%);">
+                            <span style="font-size: 2.5rem;">🎁</span>
                         </div>
-                        <h5 class="fw-bold text-dark mb-3">Giao hàng nhanh</h5>
-                        <p class="text-muted">Giao hàng trong 24h với đơn nội thành</p>
+                        <h5 class="fw-bold text-christmas-red mb-3">Quà tặng đặc biệt</h5>
+                        <p class="text-muted mb-0">Tặng quà Giáng Sinh cho mọi đơn hàng, giao nhanh trong ngày lễ</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card border-1 shadow-sm rounded-4 h-100 feature-card-hover">
+                <div class="card border-0 shadow-sm rounded-4 h-100 feature-card-hover christmas-card">
                     <div class="card-body text-center p-4">
-                        <div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-4" 
-                             style="width: 70px; height: 70px; background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
-                            <i class="bi bi-shield-check text-white" style="font-size: 2rem;"></i>
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-4" 
+                             style="width: 80px; height: 80px; background: linear-gradient(135deg, #165b33 0%, #0d3d22 100%);">
+                            <span style="font-size: 2.5rem;">⭐</span>
                         </div>
-                        <h5 class="fw-bold text-dark mb-3">Bảo hành chính hãng</h5>
-                        <p class="text-muted">Cam kết 100% hàng chính hãng</p>
+                        <h5 class="fw-bold text-christmas-green mb-3">Ưu đãi mùa lễ</h5>
+                        <p class="text-muted mb-0">Giảm giá đến 50% cho sản phẩm chọn lọc dịp Giáng Sinh</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card border-1 shadow-sm rounded-4 h-100 feature-card-hover">
+                <div class="card border-0 shadow-sm rounded-4 h-100 feature-card-hover christmas-card">
                     <div class="card-body text-center p-4">
-                        <div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-4" 
-                             style="width: 70px; height: 70px; background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
-                            <i class="bi bi-headset text-white" style="font-size: 2rem;"></i>
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-4" 
+                             style="width: 80px; height: 80px; background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);">
+                            <span style="font-size: 2.5rem;">🔔</span>
                         </div>
-                        <h5 class="fw-bold text-dark mb-3">Hỗ trợ 24/7</h5>
-                        <p class="text-muted">Đội ngũ hỗ trợ nhiệt tình</p>
+                        <h5 class="fw-bold text-christmas-gold mb-3">Tích điểm nhân đôi</h5>
+                        <p class="text-muted mb-0">Tích điểm thưởng gấp đôi cho mỗi giao dịch dịp lễ</p>
                     </div>
                 </div>
             </div>
@@ -71,21 +116,22 @@
     @if (!isLoading && categories.Any())
     {
         <section class="py-5">
-            <h2 class="text-center fw-bold text-dark mb-5">Sản phẩm theo danh mục</h2>
             @foreach (var category in categories.Take(3))
             {
                 var categoryProducts = products.Where(p => p.CategoryId == category.CategoryId && !p.Deleted).Take(4).ToList();
                 @if (categoryProducts.Any())
                 {
                     <div class="mb-5">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h4 class="fw-bold text-dark mb-0">
-                                <i class="bi bi-tag-fill text-success me-2"></i>
+                        <div class="d-flex justify-content-between align-items-center mb-4 category-header">
+                            <h4 class="fw-bold text-dark mb-0 d-flex align-items-center">
+                                <span class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-tag-fill"></i>
+                                </span>
                                 @category.CategoryName
                             </h4>
-                            <a href="/products" class="btn btn-outline-success btn-sm rounded-pill">
+                            <a href="/products" class="btn btn-outline-success rounded-pill px-4">
                                 Xem tất cả
-                                <i class="bi bi-arrow-right ms-1"></i>
+                                <i class="bi bi-arrow-right ms-2"></i>
                             </a>
                         </div>
                         <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4">
@@ -93,33 +139,39 @@
                             {
                                 <div class="col">
                                     <div class="card border-0 shadow-sm rounded-4 h-100 product-card-hover" @onclick="() => ViewProduct(product.ProductId)" style="cursor: pointer;">
-                                        <div class="position-relative overflow-hidden rounded-top-4" style="height: 180px; background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);">
+                                        <div class="position-relative overflow-hidden rounded-top-4" style="height: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                                             @if (!string.IsNullOrEmpty(product.ImageUrl))
                                             {
-                                                <img src="@product.ImageUrl" alt="@product.ProductName" class="w-100 h-100" style="object-fit: cover;" />
+                                                <img src="@product.ImageUrl" alt="@product.ProductName" class="w-100 h-100" style="object-fit: cover; transition: transform 0.3s ease;" />
                                             }
                                             else
                                             {
                                                 <div class="d-flex align-items-center justify-content-center h-100">
-                                                    <i class="bi bi-image text-muted" style="font-size: 3rem;"></i>
+                                                    <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
                                                 </div>
                                             }
                                             @if (product.IsInStock)
                                             {
-                                                <span class="badge bg-success position-absolute top-0 end-0 m-2">Còn hàng</span>
+                                                <span class="badge bg-success position-absolute top-0 end-0 m-3 px-3 py-2 rounded-pill">
+                                                    <i class="bi bi-check-circle me-1"></i>Còn hàng
+                                                </span>
                                             }
                                             else
                                             {
-                                                <span class="badge bg-danger position-absolute top-0 end-0 m-2">Hết hàng</span>
+                                                <span class="badge bg-danger position-absolute top-0 end-0 m-3 px-3 py-2 rounded-pill">
+                                                    <i class="bi bi-x-circle me-1"></i>Hết hàng
+                                                </span>
                                             }
                                         </div>
                                         <div class="card-body p-3">
                                             <h6 class="fw-semibold text-dark mb-2 text-truncate-2" title="@product.ProductName">@product.ProductName</h6>
-                                            <div class="text-success fw-bold fs-6">@product.Price.ToString("N0") đ</div>
-                                            <div class="btn btn-outline-success btn-sm w-100 mt-2 view-detail-btn">
-                                                <span class="small">Xem chi tiết</span>
-                                                <i class="bi bi-arrow-right ms-1"></i>
+                                            <div class="d-flex align-items-center justify-content-between mt-auto">
+                                                <div class="text-success fw-bold fs-5">@product.Price.ToString("N0") <small class="text-muted fw-normal">đ</small></div>
                                             </div>
+                                            <button class="btn btn-outline-success btn-sm w-100 mt-3 view-detail-btn rounded-pill">
+                                                <span>Xem chi tiết</span>
+                                                <i class="bi bi-arrow-right ms-2"></i>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -130,52 +182,174 @@
             }
         </section>
     }
+    else if (isLoading)
+    {
+        <section class="py-5 text-center">
+            <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Đang tải...</span>
+            </div>
+            <p class="text-muted mt-3">Đang tải sản phẩm...</p>
+        </section>
+    }
 </div>
 
 <style>
-    .hero-icon-animate {
-        animation: bounce 2s infinite;
+    /* Carousel Styles */
+    .carousel-img {
+        height: 500px;
+        object-fit: fill;
+        transition: transform 0.5s ease;
+    }
+    
+    #heroCarousel {
+        border-radius: 20px;
+        width: 100%;
+    }
+    
+    #heroCarousel .carousel-inner,
+    #heroCarousel .carousel-item {
+        width: 100%;
+    }
+    
+    #heroCarousel .carousel-caption {
+        bottom: 30px;
+        left: 5%;
+        right: auto;
+        text-align: left;
+        padding: 20px;
+        max-width: 400px;
+    }
+    
+    #heroCarousel .carousel-control-prev,
+    #heroCarousel .carousel-control-next {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #c41e3a 0%, #a01729 100%);
+        border-radius: 50%;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 1;
+        transition: all 0.3s ease;
+        margin: 0 15px;
+        border: 2px solid #FFD700;
+    }
+    
+    #heroCarousel .carousel-control-prev:hover,
+    #heroCarousel .carousel-control-next:hover {
+        background: linear-gradient(135deg, #a01729 0%, #801422 100%);
+        transform: translateY(-50%) scale(1.1);
+        box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+    }
+    
+    #heroCarousel .carousel-indicators {
+        bottom: 15px;
+    }
+    
+    #heroCarousel .carousel-indicators button {
+        width: 40px;
+        height: 6px;
+        border-radius: 10px;
+        background-color: rgba(255, 255, 255, 0.5);
+        border: none;
+        margin: 0 5px;
+        transition: all 0.3s ease;
+    }
+    
+    #heroCarousel .carousel-indicators button.active {
+        background: linear-gradient(135deg, #c41e3a 0%, #FFD700 100%);
+        width: 50px;
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+    }
+    
+    /* Christmas Theme */
+    .text-christmas-red {
+        color: #c41e3a !important;
     }
 
-    @@keyframes bounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
+    .text-christmas-green {
+        color: #165b33 !important;
     }
 
+    .text-christmas-gold {
+        color: #FFD700 !important;
+    }
+
+    .christmas-title {
+        color: #c41e3a;
+        text-shadow: 2px 2px 4px rgba(196, 30, 58, 0.2);
+    }
+
+    /* Feature Cards */
     .feature-card-hover {
         transition: all 0.3s ease;
+        border: 2px solid transparent;
+        background: linear-gradient(white, white) padding-box,
+                    linear-gradient(135deg, #c41e3a 0%, #165b33 50%, #FFD700 100%) border-box;
+    }
+
+    .christmas-card {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .christmas-card::before {
+        content: "❄️";
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 1.5rem;
+        opacity: 0.3;
     }
 
     .feature-card-hover:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 8px 24px rgba(46, 204, 113, 0.15) !important;
+        transform: translateY(-10px) scale(1.02);
+        box-shadow: 0 15px 35px rgba(196, 30, 58, 0.25) !important;
+        border-color: #c41e3a;
     }
     
+    /* Product Cards */
     .product-card-hover {
         transition: all 0.3s ease;
+        border: 2px solid transparent;
+        position: relative;
+    }
+
+    .product-card-hover::after {
+        content: "🎄";
+        position: absolute;
+        top: -5px;
+        left: -5px;
+        font-size: 1.2rem;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .product-card-hover:hover::after {
+        opacity: 1;
     }
 
     .product-card-hover:hover {
         transform: translateY(-8px);
-        box-shadow: 0 8px 24px rgba(46, 204, 113, 0.2) !important;
+        box-shadow: 0 12px 30px rgba(196, 30, 58, 0.25) !important;
+        border-color: #c41e3a;
     }
 
     .view-detail-btn {
-        transition: all 0.2s;
+        transition: all 0.3s ease;
     }
 
     .product-card-hover:hover .view-detail-btn {
-        background-color: #2ecc71;
-        border-color: #2ecc71;
+        background: linear-gradient(135deg, #c41e3a 0%, #a01729 100%);
+        border-color: #c41e3a;
         color: white;
     }
 
     .view-detail-btn i {
-        transition: transform 0.2s;
+        transition: transform 0.3s ease;
     }
 
     .product-card-hover:hover .view-detail-btn i {
-        transform: translateX(4px);
+        transform: translateX(5px);
     }
     
     .text-truncate-2 {
@@ -183,17 +357,97 @@
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
+        min-height: 2.8em;
     }
 
+    /* Button Styles */
     .btn-success {
-        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
-        border-color: #27ae60;
+        background: linear-gradient(135deg, #c41e3a 0%, #a01729 100%);
+        border: none;
+        transition: all 0.3s ease;
+        color: white;
     }
 
     .btn-success:hover {
-        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
-        transform: translateY(-3px);
-        box-shadow: 0 8px 24px rgba(46, 204, 113, 0.4) !important;
+        background: linear-gradient(135deg, #a01729 0%, #801422 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(196, 30, 58, 0.4) !important;
+        color: white;
+    }
+
+    .btn-outline-success {
+        border: 2px solid #c41e3a;
+        color: #c41e3a;
+    }
+
+    .btn-outline-success:hover {
+        background: #c41e3a;
+        color: white;
+        border-color: #c41e3a;
+    }
+    
+    .btn-warning {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        border: none;
+    }
+    
+    .btn-info {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        border: none;
+    }
+    
+    /* Section Title */
+    .section-title {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .section-title::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 4px;
+        background: linear-gradient(135deg, #c41e3a 0%, #165b33 50%, #FFD700 100%);
+        border-radius: 2px;
+    }
+
+    .bg-success {
+        background: linear-gradient(135deg, #165b33 0%, #0d3d22 100%) !important;
+    }
+    
+    /* Category Header */
+    .category-header {
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .carousel-img {
+            height: 300px !important;
+        }
+        
+        #heroCarousel .carousel-caption {
+            max-width: 80%;
+            padding: 15px;
+            bottom: 15px;
+        }
+        
+        #heroCarousel .carousel-control-prev,
+        #heroCarousel .carousel-control-next {
+            width: 40px;
+            height: 40px;
+            margin: 0 10px;
+        }
+    }
+    
+    @@media (max-width: 576px) {
+        .carousel-img {
+            height: 250px !important;
+        }
     }
 </style>
 
@@ -205,6 +459,45 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeCarousel();
+        }
+    }
+
+    private async Task InitializeCarousel()
+    {
+        try
+        {
+            // Đợi một chút để DOM được render hoàn toàn
+            await Task.Delay(100);
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    var carouselEl = document.getElementById('heroCarousel');
+                    if (carouselEl && typeof bootstrap !== 'undefined') {
+                        var existingCarousel = bootstrap.Carousel.getInstance(carouselEl);
+                        if (existingCarousel) {
+                            existingCarousel.dispose();
+                        }
+                        var carousel = new bootstrap.Carousel(carouselEl, {
+                            interval: 4000,
+                            ride: 'carousel',
+                            wrap: true,
+                            touch: true
+                        });
+                        carousel.cycle();
+                    }
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing carousel: {ex.Message}");
+        }
     }
 
     private async Task LoadData()
