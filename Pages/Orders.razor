@@ -2,12 +2,10 @@
 @layout CustomerLayout
 @using BlazorApp.Services
 @using BlazorApp.Dto
+@using Microsoft.JSInterop
 @inject IOrderService OrderService
 @inject NavigationManager Navigation
-@inject IJSRuntime _jsRuntime
-@using System.Text.Json
-
-<PageTitle>Đơn hàng</PageTitle>
+@inject IJSRuntime JSRuntime
 
 <div class="orders-container">
     <div class="orders-header">
@@ -35,8 +33,28 @@
                     Chờ xác nhận
                 </button>
 
-                <button class="filter-btn @(selectedCategoryName == "paid" ? "active" : "")"
-                    @onclick='() => FilterByCategory("paid")'>
+                <button class="filter-btn @(selectedCategoryName == "approved" ? "active" : "")"
+                    @onclick='() => FilterByCategory("approved")'>
+                    Đã duyệt
+                </button>
+
+                <button class="filter-btn @(selectedCategoryName == "processing" ? "active" : "")"
+                    @onclick='() => FilterByCategory("processing")'>
+                    Đang xử lý
+                </button>
+
+                <button class="filter-btn @(selectedCategoryName == "shipping" ? "active" : "")"
+                    @onclick='() => FilterByCategory("shipping")'>
+                    Đang giao hàng
+                </button>
+
+                <button class="filter-btn @(selectedCategoryName == "delivered" ? "active" : "")"
+                    @onclick='() => FilterByCategory("delivered")'>
+                    Đã giao hàng
+                </button>
+
+                <button class="filter-btn @(selectedCategoryName == "completed" ? "active" : "")"
+                    @onclick='() => FilterByCategory("completed")'>
                     Hoàn thành
                 </button>
 
@@ -81,19 +99,31 @@
                         <span class="order-code">
                             MÃ ĐƠN HÀNG: @order.OrderId
                         </span>
-
                         <span class="order-status">
                             
-                            @switch (order.Status?.ToLower())
+                            @switch (order.OrderStatus?.ToLower())
                             {
                                 case "pending":
                                     @:<text class="badge pending">CHỜ XÁC NHẬN</text>
                                     break;
-
+                                case "approved":
+                                    @:<text class="badge approved">ĐÃ DUYỆT</text>
+                                    break;
+                                case "processing":
+                                    @:<text class="badge processing">ĐANG XỬ LÝ</text>
+                                    break;
+                                case "shipping":
+                                    @:<text class="badge shipping">ĐANG GIAO HÀNG</text>
+                                    break;
+                                case "delivered":
+                                    @:<text class="badge delivered">ĐÃ GIAO HÀNG</text>
+                                    break;
+                                case "completed":
+                                    @:<text class="badge completed">HOÀN THÀNH</text>
+                                    break;
                                 case "paid":
                                     @:<text class="badge paid">HOÀN THÀNH</text>
                                     break;
-
                                 case "canceled":
                                     @:<text class="badge canceled">ĐÃ HỦY</text>
                                     break;
@@ -103,6 +133,37 @@
                                     break;
                             }
                         </span>
+                    </div>
+
+                    <div class="order-info">
+                        <div class="info-item">
+                            <i class="bi bi-calendar-event"></i>
+                            <span>Ngày đặt: @order.OrderDate?.ToString("dd/MM/yyyy HH:mm")</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="bi bi-credit-card"></i>
+                            <span>
+                                Thanh toán: 
+                                @switch (order.PaymentMethod?.ToLower())
+                                {
+                                    case "cash":
+                                        <text>Tiền mặt</text>
+                                        break;
+                                    case "card":
+                                        <text>Thẻ</text>
+                                        break;
+                                    case "bank_transfer":
+                                        <text>Chuyển khoản</text>
+                                        break;
+                                    case "e-wallet":
+                                        <text>Ví điện tử</text>
+                                        break;
+                                    default:
+                                        <text>@order.PaymentMethod</text>
+                                        break;
+                                }
+                            </span>
+                        </div>
                     </div>
 
                     <div class="body">
@@ -163,12 +224,21 @@
                             </span>
                         </div>
                         <div class="order-btn">
-                            @if(order.Status == "pending")
+                            @{
+                                // Kiểm tra xem có phải là trạng thái không được hủy không
+                                var nonCancelableStatuses = new[] { "approved", "processing", "shipping", "delivered", "completed" };
+                                bool canCancel = (order.PayStatus == "pending" || order.PayStatus == "paid")
+                                    && order.OrderType?.ToLower() == "online"
+                                    && !nonCancelableStatuses.Contains(order.OrderStatus?.ToLower());
+                            }
+                            
+                            @if(canCancel)
                             {
                                 <button class="order-btn-cancel" @onclick="() => OpenConfirm(order)">
                                     Hủy đơn
                                 </button>
                             }
+                            
                             <button class="order-btn-detail" 
                                 @onclick="() => OpenOrderDetail(order)"
                             >
@@ -207,7 +277,7 @@
                         &nbsp;&nbsp;|
                         <span style="color: #27ae60; padding-left: 10px;">
                             
-                            @switch (selectedOrder.Status?.ToLower())
+                            @switch (selectedOrder.PayStatus?.ToLower())
                             {
                                 case "pending":
                                     @:<text class="badge pending">CHỜ XÁC NHẬN</text>
@@ -232,27 +302,25 @@
 
             <div class="modal-body">
                 <div class="modal-info-detail airmail-border">
-                    <h3 style="text-align: center; font-weight: 500; margin-bottom: 10px;">Thông tin khách hàng</h3>
+                    <h3 style="text-align: center; font-weight: 500; margin-bottom: 10px;">Thông tin giao hàng</h3>
                     <div class="detail">
-                        @if (customer != null)
+                        @if (selectedOrder != null)
                         {
                                 <div style="display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(117, 117, 117, 0.3); margin-bottom: 10px;">
-                                    <span>Tên khách hàng:</span>
-                                    <span>@customer.Name </span>
+                                    <span style="font-weight: 600;">Họ tên:</span>
+                                    <span>@(selectedOrder.Name ?? "Chưa có thông tin")</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(117, 117, 117, 0.3); margin-bottom: 10px;">
-                                    <span>Số điện thoại:</span>
-                                    <span>@customer.Phone </span>
-                                </div>
-
-
-                                <div style="display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(117, 117, 117, 0.3); margin-bottom: 10px;">
-                                    <span>Địa chỉ:</span>
-                                    <span>@customer.Address </span>
+                                    <span style="font-weight: 600;">Số điện thoại:</span>
+                                    <span>@(selectedOrder.Phone ?? "Chưa có thông tin")</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(117, 117, 117, 0.3); margin-bottom: 10px;">
-                                    <span>Email:</span>
-                                    <span>@customer.Email</span>
+                                    <span style="font-weight: 600;">Email:</span>
+                                    <span>@(selectedOrder.Email ?? "Chưa có thông tin")</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(117, 117, 117, 0.3); margin-bottom: 10px;">
+                                    <span style="font-weight: 600;">Địa chỉ:</span>
+                                    <span>@(selectedOrder.Address ?? "Chưa có thông tin")</span>
                                 </div>
                         }
                     </div>
@@ -306,6 +374,10 @@
     
 
             <div class="modal-footer">
+                <button class="order-btn-pdf" @onclick="() => DownloadPdf(selectedOrder.OrderId)" disabled="@isDownloadingPdf">
+                    <i class="bi bi-file-pdf"></i>
+                    @(isDownloadingPdf ? "Đang tạo PDF..." : "Tải hóa đơn PDF")
+                </button>
                 
                 <button class="order-btn-detail" @onclick="CloseOrderDetail">
                     Đóng
@@ -319,29 +391,43 @@
     {
         <div class="confirm-overlay">
             <div class="confirm-box">
-                <h3>Xác nhận</h3>
-                <p>
-                    Bạn muốn hủy đơn @selectedOrder.OrderId
+                <h3>Xác nhận hủy đơn hàng</h3>
+                <p style="margin-bottom: 16px;">
+                    Bạn có chắc chắn muốn hủy đơn hàng #@selectedOrder.OrderId?
+                    @if (selectedOrder.PayStatus?.ToLower() == "paid")
+                    {
+                        <br/>
+                        <span style="color: #dc2626; font-weight: 500;">
+                            ⚠️ Đơn hàng này đã thanh toán, sẽ được chuyển sang trạng thái hoàn tiền.
+                        </span>
+                    }
                 </p>
 
                 <div class="actions">
                     <button class="btn-yes"
                             disabled="@Canceling"
                             @onclick="DoCancel">
-                        @(Canceling ? "Đang hủy..." : "Xác nhận")
+                        @(Canceling ? "Đang hủy..." : "Xác nhận hủy")
                     </button>
 
                     <button class="btn-no"
                             disabled="@Canceling"
                             @onclick="CloseConfirm">
-                        Hủy
+                        Không hủy
                     </button>
                 </div>
 
                 @if (!string.IsNullOrEmpty(CancelError))
                 {
-                    <div class="error" style="margin-top:8px;">
-                        @CancelError
+                    <div class="error" style="margin-top:8px; color: #dc2626; font-size: 14px;">
+                        ❌ @CancelError
+                    </div>
+                }
+                
+                @if (!string.IsNullOrEmpty(CancelSuccess))
+                {
+                    <div class="success" style="margin-top:8px; color: #16a34a; font-size: 14px;">
+                        ✅ @CancelSuccess
                     </div>
                 }
             </div>
@@ -349,12 +435,14 @@
     }
 
 
+
+
 </div>
 
 <style>
     /* CSS CHO MODAL HỦY ĐƠN HÀNG */
     .confirm-overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.4); z-index:1000; }
-    .confirm-box { background:#fff; width:360px; border-radius:10px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+    .confirm-box { background:#fff; width:400px; max-width:90%; border-radius:10px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
     .confirm-box h3 { margin:0 0 8px; }
     .confirm-box .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
     .btn-yes { padding:8px 12px; background:#ef4444; color:#fff; border:none; border-radius:6px; cursor:pointer; }
@@ -370,15 +458,37 @@
         text-transform:uppercase; 
     }
 
+    .badge.pending { 
+        background:#fff7ed; 
+        color:#b45309; 
+    }
+
+    .badge.approved { 
+        background:#dbeafe; 
+        color:#1e40af; 
+    }
+
+    .badge.processing { 
+        background:#fef3c7; 
+        color:#92400e; 
+    }
+
+    .badge.shipping { 
+        background:#e0e7ff; 
+        color:#4338ca; 
+    }
+
+    .badge.delivered { 
+        background:#dcfce7; 
+        color:#166534; 
+    }
+
+    .badge.completed,
     .badge.paid { 
         background:#e6fffa; 
         color:#0f766e; 
     }
 
-    .badge.pending { 
-        background:#fff7ed; 
-        color:#b45309; 
-    }
     .badge.canceled { 
         background:#fee2e2; 
         color:#b91c1c; 
@@ -490,6 +600,27 @@
     .orders-body .orders-item .header .order-status {
         color: #27ae60;
         font-weight: 300;
+    }
+
+    .orders-body .orders-item .order-info {
+        display: flex;
+        gap: 20px;
+        padding: 12px 0;
+        border-bottom: 1px solid #e9ecef;
+        flex-wrap: wrap;
+    }
+
+    .orders-body .orders-item .order-info .info-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        color: #495057;
+    }
+
+    .orders-body .orders-item .order-info .info-item i {
+        color: #6c757d;
+        font-size: 16px;
     }
 
     .orders-body .orders-item .body {
@@ -761,9 +892,10 @@
         border-top: 1px solid #757575;
         margin-top: 30px;
         display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        align-items: flex-end;
+        flex-direction: row;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
     }
 
     
@@ -782,6 +914,35 @@
     .order-btn-detail:hover {
         background: #e9ecef;
         transform: translateY(-2px);
+    }
+
+    .order-btn-pdf {
+        padding: 0.625rem 1.25rem;
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .order-btn-pdf:hover:not(:disabled) {
+        background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+    }
+
+    .order-btn-pdf:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .order-btn-pdf i {
+        font-size: 16px;
     }
 
     /* CUSTOM VIỀN */
@@ -830,7 +991,6 @@
     private string? selectedCategoryName = null;
     private string searchKeyword = "";
     private System.Threading.Timer? searchTimer;
-    private CustomerInfo customer = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -842,20 +1002,15 @@
         isLoading = true;
         try
         {
-            var json = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
-            if (!string.IsNullOrEmpty(json))
-            {
-                customer = JsonSerializer.Deserialize<CustomerInfo>(json);
-            }
             orders = await OrderService.GetOnlineOrdersByCustomerIdAsync();
-            @* foreach (var order in orders)
+            foreach (var order in orders)
             {
                 // Gắn chi tiết sản phẩm vào order theo order_id
                 order.OrderItems = (await OrderService
                     .GetOrderItemWithProductAsync(order.OrderId))
                     .ToList();
 
-            } *@
+            }
             filteredOrders = orders;
         }
         catch (Exception ex)
@@ -892,11 +1047,11 @@
         filteredOrders = orders;
         
 
-        // Filter by category name
+        // Filter by category name (OrderStatus)
         if (!string.IsNullOrEmpty(selectedCategoryName))
         {
             filteredOrders = filteredOrders
-                .Where(o => o.Status == selectedCategoryName)
+                .Where(o => o.OrderStatus?.ToLower() == selectedCategoryName.ToLower())
                 .ToList();
         }
 
@@ -907,7 +1062,8 @@
             filteredOrders = filteredOrders
                 .Where(o => 
                     (int.TryParse(keyword, out int id) && o.OrderId == id) ||
-                    (o.Status?.ToLower().Contains(keyword) ?? false)
+                    (o.PayStatus?.ToLower().Contains(keyword) ?? false) ||
+                    (o.OrderStatus?.ToLower().Contains(keyword) ?? false)
                 )
                 .ToList();
         }
@@ -933,6 +1089,7 @@
     // LOGIC CHO MODAL XEM CHI TIẾT ĐƠN HÀNG
     private bool isShowDetailModal = false;
     private OrderDto? selectedOrder = null;
+    private bool isDownloadingPdf = false;
 
     private void OpenOrderDetail(OrderDto order)
     {
@@ -946,40 +1103,93 @@
         selectedOrder = null;
     }
 
+    private async Task DownloadPdf(int orderId)
+    {
+        isDownloadingPdf = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await OrderService.DownloadInvoicePdfAsync(orderId);
+            if (response != null && response.Length > 0)
+            {
+                var fileName = $"HoaDon_{orderId}_{DateTime.Now:yyyyMMdd}.pdf";
+                var base64 = Convert.ToBase64String(response);
+                
+                // Tải file PDF sử dụng JavaScript
+                await JSRuntime.InvokeVoidAsync("downloadFileFromBytes", fileName, base64);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading PDF: {ex.Message}");
+        }
+        finally
+        {
+            isDownloadingPdf = false;
+            StateHasChanged();
+        }
+    }
+
     // LOGIC CHO MODAL HỦY ĐƠN HÀNG
     private bool ShowConfirm = false;
     private bool Canceling = false;
     private string? CancelError;
+    private string? CancelSuccess;
 
     private async Task DoCancel()
     {
         Canceling = true;
         CancelError = null;
-        StateHasChanged(); // Hàm render giao diện ngay lập tức
+        CancelSuccess = null;
+        StateHasChanged();
 
         try
         {
-            if(selectedOrder != null)
+            if(selectedOrder == null)
             {
-                
-                var result  = await OrderService.UpdateOrderAndBillStatusAsync(selectedOrder.OrderId, "canceled", "cancelled");
-                if(result)
-                {
-                    await LoadData();
-                    FilterByCategory("pending");
-                    ShowConfirm = false;
-                }
-                else
-                {
-                    CancelError = "Lỗi hủy đơn hàng!";
-                }
+                CancelError = "Không tìm thấy đơn hàng!";
+                return;
             }
 
-            ShowConfirm = false; 
+            // Kiểm tra điều kiện hủy đơn
+            if(selectedOrder.OrderType?.ToLower() != "online")
+            {
+                CancelError = "Chỉ có thể hủy đơn hàng online!";
+                return;
+            }
+
+            var nonCancelableStatuses = new[] { "approved", "processing", "shipping", "delivered", "completed" };
+            if(nonCancelableStatuses.Contains(selectedOrder.OrderStatus?.ToLower()))
+            {
+                CancelError = "Không thể hủy đơn hàng đã được xử lý!";
+                return;
+            }
+            
+            // Gọi API hủy đơn
+            var result = await OrderService.UpdateOrderAndBillStatusAsync(selectedOrder.OrderId, "canceled", "cancelled");
+            
+            if(result)
+            {
+                CancelSuccess = "Đơn hàng đã được hủy thành công!";
+                
+                // Đợi 1.5 giây để hiển thị thông báo thành công
+                await Task.Delay(1500);
+                
+                // Reload data và đóng modal
+                await LoadData();
+                ShowConfirm = false;
+                CancelSuccess = null;
+            }
+            else
+            {
+                CancelError = "Hủy đơn hàng thất bại. Vui lòng thử lại!";
+            }
         }
         catch (Exception ex)
         {
-            CancelError = "Hủy đơn thất bại!";
+            Console.WriteLine($"Error canceling order: {ex.Message}");
+            CancelError = $"Lỗi: {ex.Message}";
         }
         finally
         {
@@ -992,11 +1202,14 @@
     {
         ShowConfirm = false;
         CancelError = null;
+        CancelSuccess = null;
     }
 
     public void OpenConfirm(OrderDto order)
     {
         selectedOrder = order;
+        CancelError = null;
+        CancelSuccess = null;
         ShowConfirm = true;
     }
 }

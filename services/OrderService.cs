@@ -10,6 +10,7 @@ namespace BlazorApp.Services
         Task<List<OrderDto>> GetOnlineOrdersByCustomerIdAsync();
         Task<List<OrderItemWithProductDto>> GetOrderItemWithProductAsync(int orderId);
         Task<bool> UpdateOrderAndBillStatusAsync(int orderId, string statusOrder, string statusBill);
+        Task<byte[]?> DownloadInvoicePdfAsync(int orderId);
         
         Task<OrderDto?> CreateOrderFromCartAsync(CreateOrderFromCartRequest request);
         Task<OrderDto?> PreviewOrderFromCartAsync(CreateOrderFromCartRequest request);
@@ -78,6 +79,24 @@ namespace BlazorApp.Services
             var result = await _apiService.PostAsync<UpdateOrderAndBillStatusDto, int>("api/customer/orders/update-order-and-bill-status", request);
 
             return result > 0;
+        }
+
+        public async Task<byte[]?> DownloadInvoicePdfAsync(int orderId)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync($"api/customer/orders/{orderId}/invoice-pdf");
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadAsByteArrayAsync();
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error downloading PDF: {ex.Message}");
+                return null;
+            }
         }
 
 
