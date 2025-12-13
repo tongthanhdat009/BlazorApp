@@ -28,6 +28,20 @@ namespace BlazorApp.Services
             }
         }
 
+        public async Task<VNPayResponseDto?> CreateVNPayPaymentAsync(VNPayRequestDto request)
+        {
+            var response = await _http.PostAsJsonAsync("api/customer/vnpay/create-payment", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<VNPayResponseDto>();
+            }
+            else
+            {
+                var err = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                throw new Exception(err?.message ?? "Lỗi khi tạo thanh toán VNPay");
+            }
+        }
 
         public async Task<List<PaymentDto>> GetPaymentsByOrderAsync(int orderId)
         {

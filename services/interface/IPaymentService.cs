@@ -8,5 +8,6 @@ namespace BlazorApp.Services
     {
         Task<PaymentDto?> CreatePaymentAsync(int orderId, PaymentDto paymentDto);
         Task<List<PaymentDto>> GetPaymentsByOrderAsync(int orderId);
+        Task<VNPayResponseDto?> CreateVNPayPaymentAsync(VNPayRequestDto request);
     }
 }

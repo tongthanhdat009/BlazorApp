@@ -180,10 +180,35 @@
                     <i class="bi bi-wallet2 text-success me-2"></i>
                     Phương thức thanh toán
                 </h5>
-                <select class="form-select form-select-lg" @bind="paymentMethod">
-                    <option value="cash">💵 Tiền mặt</option>
-                    <option value="e-wallet">💳 Ví điện tử</option>
-                </select>
+                <div class="payment-methods">
+                    <div class="form-check mb-3 p-3 border rounded-3 @(paymentMethod == "cash" ? "border-success bg-success bg-opacity-10" : "")">
+                        <input class="form-check-input" type="radio" name="paymentMethod" id="paymentCash" 
+                               value="cash" @onchange="@(() => paymentMethod = "cash")" checked="@(paymentMethod == "cash")">
+                        <label class="form-check-label w-100 cursor-pointer" for="paymentCash">
+                            <div class="d-flex align-items-center">
+                                <span class="fs-4 me-3">💵</span>
+                                <div>
+                                    <div class="fw-bold">Tiền mặt</div>
+                                    <small class="text-muted">Thanh toán khi nhận hàng</small>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <div class="form-check p-3 border rounded-3 @(paymentMethod == "vnpay" ? "border-success bg-success bg-opacity-10" : "")">
+                        <input class="form-check-input" type="radio" name="paymentMethod" id="paymentVNPay" 
+                               value="vnpay" @onchange="@(() => paymentMethod = "vnpay")" checked="@(paymentMethod == "vnpay")">
+                        <label class="form-check-label w-100 cursor-pointer" for="paymentVNPay">
+                            <div class="d-flex align-items-center">
+                                <span class="fs-4 me-3">🏦</span>
+                                <div>
+                                    <div class="fw-bold">VNPay</div>
+                                    <small class="text-muted">Thanh toán qua cổng VNPay</small>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -393,33 +418,78 @@
 
         try
         {
-            // Perform checkout: this will create order, payment, bill and clear the cart on backend
-            var request = new CreateOrderFromCartRequest
+            // Nếu chọn VNPay, tạo URL thanh toán và redirect
+            if (paymentMethod == "vnpay")
             {
-                PaymentMethod = paymentMethod,
-                PromoId = appliedPromoId,
-                CustomerName = customerName,
-                CustomerPhone = customerPhone,
-                CustomerEmail = customerEmail,
-                CustomerAddress = customerAddress
-            };
+                // Tạo đơn hàng trước
+                var request = new CreateOrderFromCartRequest
+                {
+                    PaymentMethod = paymentMethod,
+                    PromoId = appliedPromoId,
+                    CustomerName = customerName,
+                    CustomerPhone = customerPhone,
+                    CustomerEmail = customerEmail,
+                    CustomerAddress = customerAddress
+                };
 
-            try
-            {
                 var createdOrder = await OrderService.CheckoutFromCartAsync(request);
                 if (createdOrder != null)
                 {
-                    // Navigate to success page
-                    Navigation.NavigateTo($"/payment-success/{createdOrder.OrderId}");
+                    // Tạo URL thanh toán VNPay
+                    // Không set ReturnUrl, để backend dùng config từ appsettings
+                    var vnpayRequest = new VNPayRequestDto
+                    {
+                        OrderId = createdOrder.OrderId,
+                        Amount = finalAmount,
+                        OrderInfo = $"Thanh toán đơn hàng #{createdOrder.OrderId}"
+                    };
+
+                    var vnpayResponse = await PaymentService.CreateVNPayPaymentAsync(vnpayRequest);
+                    if (vnpayResponse != null && vnpayResponse.Success && !string.IsNullOrEmpty(vnpayResponse.PaymentUrl))
+                    {
+                        // Redirect đến VNPay
+                        Navigation.NavigateTo(vnpayResponse.PaymentUrl, true);
+                    }
+                    else
+                    {
+                        message = vnpayResponse?.Message ?? "Không thể tạo URL thanh toán VNPay";
+                    }
                 }
                 else
                 {
-                    message = "Thanh toán thất bại!";
+                    message = "Không thể tạo đơn hàng!";
                 }
             }
-            catch (Exception ex)
+            else
             {
-                message = $"Lỗi khi thanh toán: {ex.Message}";
+                // Perform checkout: this will create order, payment, bill and clear the cart on backend
+                var request = new CreateOrderFromCartRequest
+                {
+                    PaymentMethod = paymentMethod,
+                    PromoId = appliedPromoId,
+                    CustomerName = customerName,
+                    CustomerPhone = customerPhone,
+                    CustomerEmail = customerEmail,
+                    CustomerAddress = customerAddress
+                };
+
+                try
+                {
+                    var createdOrder = await OrderService.CheckoutFromCartAsync(request);
+                    if (createdOrder != null)
+                    {
+                        // Navigate to success page
+                        Navigation.NavigateTo($"/payment-success/{createdOrder.OrderId}");
+                    }
+                    else
+                    {
+                        message = "Thanh toán thất bại!";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    message = $"Lỗi khi thanh toán: {ex.Message}";
+                }
             }
         }
         catch (Exception ex)
@@ -491,5 +561,24 @@
 
     .bg-light {
         background-color: #f8f9fa !important;
+    }
+
+    .payment-methods .form-check {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .payment-methods .form-check:hover {
+        border-color: #2ecc71 !important;
+        background-color: rgba(46, 204, 113, 0.05) !important;
+    }
+
+    .payment-methods .form-check-input:checked {
+        background-color: #2ecc71;
+        border-color: #2ecc71;
+    }
+
+    .cursor-pointer {
+        cursor: pointer;
     }
 </style>

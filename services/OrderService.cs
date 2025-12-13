@@ -17,6 +17,7 @@ namespace BlazorApp.Services
         Task<OrderDto?> CheckoutFromCartAsync(CreateOrderFromCartRequest request);
         Task<List<OrderDto>> GetMyOrdersAsync();
         Task<OrderDto?> GetOrderByIdAsync(int orderId);
+        Task<bool> CancelOrderAsync(int orderId);
     }
 
     public class OrderService : IOrderService
@@ -170,6 +171,29 @@ namespace BlazorApp.Services
         public async Task<OrderDto?> GetOrderByIdAsync(int orderId)
         {
             return await _httpClient.GetFromJsonAsync<OrderDto>($"api/customer/orders/{orderId}");
+        }
+
+        public async Task<bool> CancelOrderAsync(int orderId)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync($"api/customer/orders/{orderId}/cancel", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"Error canceling order: {error}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception when canceling order: {ex.Message}");
+                return false;
+            }
         }
 
         // Helper DTO parse response

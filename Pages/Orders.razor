@@ -1167,7 +1167,7 @@
             }
             
             // Gọi API hủy đơn
-            var result = await OrderService.UpdateOrderAndBillStatusAsync(selectedOrder.OrderId, "canceled", "cancelled");
+            var result = await OrderService.CancelOrderAsync(selectedOrder.OrderId);
             
             if(result)
             {
