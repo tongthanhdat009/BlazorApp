@@ -44,6 +44,10 @@ namespace BlazorApp.Dto
         public string? Email { get; set; }
         
         public List<OrderItemWithProductDto> OrderItems { get; set; } = new();
+        
+        // Trạng thái hoàn tiền (nếu có)
+        public bool HasPendingRefund { get; set; } = false;
+        public string? RefundStatus { get; set; }
     }
 
      public class OrderItemDto

@@ -17,7 +17,8 @@ namespace BlazorApp.Services
         Task<OrderDto?> CheckoutFromCartAsync(CreateOrderFromCartRequest request);
         Task<List<OrderDto>> GetMyOrdersAsync();
         Task<OrderDto?> GetOrderByIdAsync(int orderId);
-        Task<bool> CancelOrderAsync(int orderId);
+        Task<bool> CancelOrderAsync(int orderId, CancelOrderDto cancelDto);
+        Task<List<RefundRequestDto>> GetRefundRequestsByOrderIdAsync(int orderId);
     }
 
     public class OrderService : IOrderService
@@ -173,11 +174,11 @@ namespace BlazorApp.Services
             return await _httpClient.GetFromJsonAsync<OrderDto>($"api/customer/orders/{orderId}");
         }
 
-        public async Task<bool> CancelOrderAsync(int orderId)
+        public async Task<bool> CancelOrderAsync(int orderId, CancelOrderDto cancelDto)
         {
             try
             {
-                var response = await _httpClient.PostAsync($"api/customer/orders/{orderId}/cancel", null);
+                var response = await _httpClient.PostAsJsonAsync($"api/customer/orders/{orderId}/cancel", cancelDto);
                 if (response.IsSuccessStatusCode)
                 {
                     return true;
@@ -193,6 +194,22 @@ namespace BlazorApp.Services
             {
                 Console.WriteLine($"Exception when canceling order: {ex.Message}");
                 return false;
+            }
+        }
+
+        public async Task<List<RefundRequestDto>> GetRefundRequestsByOrderIdAsync(int orderId)
+        {
+            try
+            {
+                var refunds = await _apiService.GetAsync<List<RefundRequestDto>>(
+                    $"api/CustomerRefund/order/{orderId}"
+                );
+                return refunds ?? new List<RefundRequestDto>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading refund requests: {ex.Message}");
+                return new List<RefundRequestDto>();
             }
         }
 

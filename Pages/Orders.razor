@@ -64,6 +64,11 @@
                     @onclick='() => FilterByCategory("canceled")'>
                     Đã hủy
                 </button>
+
+                <button class="filter-btn @(selectedCategoryName == "refund" ? "active" : "")"
+                    @onclick='() => FilterByCategory("refund")'>
+                    Đang chờ hoàn tiền
+                </button>
             </div>
         </div>
     </div>
@@ -127,7 +132,22 @@
                                     @:<text class="badge paid">HOÀN THÀNH</text>
                                     break;
                                 case "canceled":
-                                    @:<text class="badge canceled">ĐÃ HỦY</text>
+                                    @if (order.HasPendingRefund && order.RefundStatus == "pending")
+                                    {
+                                        @:<text class="badge refund-pending">ĐANG CHỜ DUYỆT HOÀN TIỀN</text>
+                                    }
+                                    else if (order.RefundStatus == "approved")
+                                    {
+                                        @:<text class="badge refund-approved">ĐANG XỬ LÝ HOÀN TIỀN</text>
+                                    }
+                                    else if (order.RefundStatus == "completed")
+                                    {
+                                        @:<text class="badge refund-completed">ĐÃ HOÀN TIỀN</text>
+                                    }
+                                    else
+                                    {
+                                        @:<text class="badge canceled">ĐÃ HỦY</text>
+                                    }
                                     break;
 
                                 default:
@@ -294,6 +314,25 @@
                                 case "canceled":
                                     @:<text class="badge canceled">ĐÃ HỦY</text>
                                     break;
+                                    
+                                case "refunded":
+                                    @if (selectedOrder.HasPendingRefund && selectedOrder.RefundStatus == "pending")
+                                    {
+                                        @:<text class="badge refund-pending">ĐANG CHỜ DUYỆT HOÀN TIỀN</text>
+                                    }
+                                    else if (selectedOrder.RefundStatus == "approved")
+                                    {
+                                        @:<text class="badge refund-approved">ĐANG XỬ LÝ HOÀN TIỀN</text>
+                                    }
+                                    else if (selectedOrder.RefundStatus == "completed")
+                                    {
+                                        @:<text class="badge refund-completed">ĐÃ HOÀN TIỀN</text>
+                                    }
+                                    else
+                                    {
+                                        @:<text class="badge refund-completed">ĐÃ HOÀN TIỀN</text>
+                                    }
+                                    break;
 
                                 default:
                                     @:<text>KHÔNG XÁC ĐỊNH</text>
@@ -394,18 +433,77 @@
     @if (ShowConfirm && selectedOrder != null)
     {
         <div class="confirm-overlay">
-            <div class="confirm-box">
+            <div class="confirm-box-large">
                 <h3>Xác nhận hủy đơn hàng</h3>
                 <p style="margin-bottom: 16px;">
                     Bạn có chắc chắn muốn hủy đơn hàng #@selectedOrder.OrderId?
                     @if (selectedOrder.PayStatus?.ToLower() == "paid")
                     {
+                        var paymentMethod = selectedOrder.PaymentMethod?.ToLower();
+                        bool isVNPay = paymentMethod == "bank_transfer" || paymentMethod == "vnpay";
+                        
                         <br/>
-                        <span style="color: #dc2626; font-weight: 500;">
-                            ⚠️ Đơn hàng này đã thanh toán, sẽ được chuyển sang trạng thái hoàn tiền.
-                        </span>
+                        @if (isVNPay)
+                        {
+                            <span style="color: #d97706; font-weight: 500;">
+                                ⚠️ Đơn hàng này đã thanh toán qua VNPay, yêu cầu hoàn tiền sẽ được gửi đến Admin để xử lý.
+                            </span>
+                        }
+                        else
+                        {
+                            <span style="color: #dc2626; font-weight: 500;">
+                                ⚠️ Đơn hàng này đã thanh toán, tiền sẽ được hoàn lại.
+                            </span>
+                        }
                     }
                 </p>
+
+                <!-- FORM NHẬP THÔNG TIN HỦY ĐƠN -->
+                @if (selectedOrder.PayStatus?.ToLower() == "paid")
+                {
+                    <div class="cancel-form">
+                        <div class="form-group">
+                            <label>Lý do hủy đơn <span style="color: red;">*</span></label>
+                            <textarea 
+                                class="form-control" 
+                                rows="3" 
+                                placeholder="Vui lòng cho biết lý do hủy đơn hàng..."
+                                @bind="cancelReason"
+                                maxlength="500"></textarea>
+                            <small class="text-muted">@(cancelReason?.Length ?? 0)/500 ký tự</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Tên ngân hàng <span style="color: red;">*</span></label>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                placeholder="Ví dụ: Vietcombank, BIDV, Techcombank..."
+                                @bind="bankName"
+                                maxlength="100" />
+                        </div>
+
+                        <div class="form-group">
+                            <label>Số tài khoản <span style="color: red;">*</span></label>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                placeholder="Nhập số tài khoản ngân hàng"
+                                @bind="bankAccount"
+                                maxlength="50" />
+                        </div>
+
+                        <div class="form-group">
+                            <label>Tên chủ tài khoản <span style="color: red;">*</span></label>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                placeholder="Nhập tên chủ tài khoản"
+                                @bind="accountHolder"
+                                maxlength="100" />
+                        </div>
+                    </div>
+                }
 
                 <div class="actions">
                     <button class="btn-yes"
@@ -447,10 +545,40 @@
     /* CSS CHO MODAL HỦY ĐƠN HÀNG */
     .confirm-overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.4); z-index:1000; }
     .confirm-box { background:#fff; width:400px; max-width:90%; border-radius:10px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
-    .confirm-box h3 { margin:0 0 8px; }
-    .confirm-box .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+    .confirm-box-large { background:#fff; width:600px; max-width:90%; max-height:90vh; overflow-y:auto; border-radius:10px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+    .confirm-box h3, .confirm-box-large h3 { margin:0 0 8px; }
+    .confirm-box .actions, .confirm-box-large .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
     .btn-yes { padding:8px 12px; background:#ef4444; color:#fff; border:none; border-radius:6px; cursor:pointer; }
     .btn-no { padding:8px 12px; background:#e5e7eb; color:#111827; border:none; border-radius:6px; cursor:pointer; }
+    
+    /* CSS CHO FORM HỦY ĐƠN */
+    .cancel-form { margin: 16px 0; }
+    .cancel-form .form-group { margin-bottom: 16px; }
+    .cancel-form label { display: block; margin-bottom: 6px; font-weight: 600; color: #374151; font-size: 14px; }
+    .cancel-form .form-control { 
+        width: 100%; 
+        padding: 10px 12px; 
+        border: 2px solid #e5e7eb; 
+        border-radius: 8px; 
+        font-size: 14px;
+        transition: all 0.2s;
+        font-family: inherit;
+    }
+    .cancel-form .form-control:focus { 
+        outline: none; 
+        border-color: #2ecc71; 
+        box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1); 
+    }
+    .cancel-form textarea.form-control { 
+        resize: vertical; 
+        min-height: 80px;
+    }
+    .cancel-form .text-muted { 
+        font-size: 12px; 
+        color: #6b7280; 
+        margin-top: 4px;
+        display: block;
+    }
 
 
     /* BADGE */
@@ -496,6 +624,21 @@
     .badge.canceled { 
         background:#fee2e2; 
         color:#b91c1c; 
+    }
+
+    .badge.refund-pending { 
+        background:#fef3c7; 
+        color:#d97706; 
+    }
+
+    .badge.refund-approved { 
+        background:#dbeafe; 
+        color:#1d4ed8; 
+    }
+
+    .badge.refund-completed { 
+        background:#d1fae5; 
+        color:#059669; 
     }
 
 
@@ -1047,6 +1190,50 @@
                         }
                     }
                 }
+                
+                // Kiểm tra refund request cho đơn hàng đã hủy
+                if (order.OrderStatus?.ToLower() == "canceled")
+                {
+                    var paymentMethod = order.PaymentMethod?.ToLower();
+                    bool isVNPay = paymentMethod == "bank_transfer" || paymentMethod == "vnpay";
+                    
+                    // Chỉ kiểm tra refund cho đơn VNPAY hoặc đơn có pay_status = pending (đang chờ xử lý)
+                    if (isVNPay || order.PayStatus?.ToLower() == "pending")
+                    {
+                        try
+                        {
+                            var refunds = await OrderService.GetRefundRequestsByOrderIdAsync(order.OrderId);
+                            var pendingRefund = refunds.FirstOrDefault(r => r.Status?.ToLower() == "pending");
+                            
+                            if (pendingRefund != null)
+                            {
+                                order.HasPendingRefund = true;
+                                order.RefundStatus = "pending";
+                            }
+                            else
+                            {
+                                var approvedRefund = refunds.FirstOrDefault(r => r.Status?.ToLower() == "approved");
+                                if (approvedRefund != null)
+                                {
+                                    order.HasPendingRefund = true;
+                                    order.RefundStatus = "approved";
+                                }
+                                else
+                                {
+                                    var completedRefund = refunds.FirstOrDefault(r => r.Status?.ToLower() == "completed");
+                                    if (completedRefund != null)
+                                    {
+                                        order.RefundStatus = "completed";
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error loading refund for order {order.OrderId}: {ex.Message}");
+                        }
+                    }
+                }
             }
             filteredOrders = orders;
         }
@@ -1087,9 +1274,19 @@
         // Filter by category name (OrderStatus)
         if (!string.IsNullOrEmpty(selectedCategoryName))
         {
-            filteredOrders = filteredOrders
-                .Where(o => o.OrderStatus?.ToLower() == selectedCategoryName.ToLower())
-                .ToList();
+            if (selectedCategoryName == "refund")
+            {
+                // Lọc các đơn đang chờ hoàn tiền
+                filteredOrders = filteredOrders
+                    .Where(o => o.HasPendingRefund || o.RefundStatus == "pending" || o.RefundStatus == "approved")
+                    .ToList();
+            }
+            else
+            {
+                filteredOrders = filteredOrders
+                    .Where(o => o.OrderStatus?.ToLower() == selectedCategoryName.ToLower())
+                    .ToList();
+            }
         }
 
         // Filter by search keyword
@@ -1173,6 +1370,12 @@
     private bool Canceling = false;
     private string? CancelError;
     private string? CancelSuccess;
+    
+    // Form data cho hủy đơn
+    private string? cancelReason;
+    private string? bankName;
+    private string? bankAccount;
+    private string? accountHolder;
 
     private async Task DoCancel()
     {
@@ -1203,8 +1406,45 @@
                 return;
             }
             
+            // Validate form nếu đơn đã thanh toán
+            if (selectedOrder.PayStatus?.ToLower() == "paid")
+            {
+                if (string.IsNullOrWhiteSpace(cancelReason))
+                {
+                    CancelError = "Vui lòng nhập lý do hủy đơn!";
+                    return;
+                }
+                
+                if (string.IsNullOrWhiteSpace(bankName))
+                {
+                    CancelError = "Vui lòng nhập tên ngân hàng!";
+                    return;
+                }
+                
+                if (string.IsNullOrWhiteSpace(bankAccount))
+                {
+                    CancelError = "Vui lòng nhập số tài khoản!";
+                    return;
+                }
+                
+                if (string.IsNullOrWhiteSpace(accountHolder))
+                {
+                    CancelError = "Vui lòng nhập tên chủ tài khoản!";
+                    return;
+                }
+            }
+            
+            // Tạo DTO với thông tin hủy đơn
+            var cancelDto = new CancelOrderDto
+            {
+                Reason = cancelReason,
+                CustomerBankName = bankName,
+                CustomerBankAccount = bankAccount,
+                CustomerAccountHolder = accountHolder
+            };
+            
             // Gọi API hủy đơn
-            var result = await OrderService.CancelOrderAsync(selectedOrder.OrderId);
+            var result = await OrderService.CancelOrderAsync(selectedOrder.OrderId, cancelDto);
             
             if(result)
             {
@@ -1217,6 +1457,9 @@
                 await LoadData();
                 ShowConfirm = false;
                 CancelSuccess = null;
+                
+                // Reset form
+                ResetCancelForm();
             }
             else
             {
@@ -1240,6 +1483,7 @@
         ShowConfirm = false;
         CancelError = null;
         CancelSuccess = null;
+        ResetCancelForm();
     }
 
     public void OpenConfirm(OrderWithDetailsDto order)
@@ -1248,5 +1492,14 @@
         CancelError = null;
         CancelSuccess = null;
         ShowConfirm = true;
+        ResetCancelForm();
+    }
+    
+    private void ResetCancelForm()
+    {
+        cancelReason = null;
+        bankName = null;
+        bankAccount = null;
+        accountHolder = null;
     }
 }
