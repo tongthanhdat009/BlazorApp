@@ -2,9 +2,11 @@
 @layout CustomerLayout
 @using BlazorApp.Services
 @using BlazorApp.Dto
+@using BlazorApp.Services.Interface
 @inject IApiService ApiService
 @inject IAuthService AuthService
 @inject IProductService ProductService
+@inject IS3ImageService S3ImageService
 @inject NavigationManager Navigation
 
 <PageTitle>@(product?.ProductName ?? "Chi tiết sản phẩm") - Store Manager</PageTitle>
@@ -47,17 +49,12 @@
                     <!-- Product Images -->
                     <div class="col-lg-6">
                         <div class="sticky-top z-2" style="top: 2rem;">
-                            <div class="rounded-4 overflow-hidden" style="height: 500px; background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);">
-                                @if (!string.IsNullOrEmpty(product.ImageUrl))
-                                {
-                                    <img src="@product.ImageUrl" alt="@product.ProductName" class="w-100 h-100" style="object-fit: cover;" />
-                                }
-                                else
-                                {
-                                    <div class="d-flex align-items-center justify-content-center h-100">
-                                        <i class="bi bi-image text-muted" style="font-size: 5rem;"></i>
-                                    </div>
-                                }
+                            <div class="rounded-4 overflow-hidden" style="height: 500px;">
+                                <ProductImage ImageUrl="@product.ImageUrl" 
+                                            Alt="@product.ProductName" 
+                                            CssClass="w-100 h-100" 
+                                            Style="object-fit: cover;" 
+                                            IconSize="5rem" />
                             </div>
                         </div>
                     </div>
@@ -172,9 +169,12 @@
                         <div class="col">
                             <div class="card border-0 shadow-sm rounded-4 h-100 product-card-hover" @onclick="() => NavigateToProduct(relatedProduct.ProductId)" style="cursor: pointer;">
                                 <div class="position-relative overflow-hidden rounded-top-4" style="height: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-                                    @if (!string.IsNullOrEmpty(relatedProduct.ImageUrl))
+                                    @if (productImageUrls.ContainsKey(relatedProduct.ProductId))
                                     {
-                                        <img src="@relatedProduct.ImageUrl" alt="@relatedProduct.ProductName" class="w-100 h-100" style="object-fit: cover; transition: transform 0.3s ease;" />
+                                        <img src="@productImageUrls[relatedProduct.ProductId]" 
+                                             alt="@relatedProduct.ProductName" 
+                                             class="w-100 h-100" 
+                                             style="object-fit: cover; transition: transform 0.3s ease;" />
                                     }
                                     else
                                     {
@@ -295,6 +295,7 @@
 
     private ProductDto? product;
     private List<ProductDto> relatedProducts = new();
+    private Dictionary<int, string> productImageUrls = new();
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -329,6 +330,17 @@
                                p.IsInStock)
                     .Take(8)
                     .ToList();
+                
+                // Preload S3 image URLs for related products
+                productImageUrls.Clear();
+                foreach (var relatedProduct in relatedProducts)
+                {
+                    if (!string.IsNullOrEmpty(relatedProduct.ImageUrl))
+                    {
+                        var imageUrl = await S3ImageService.GetImageUrlAsync(relatedProduct.ImageUrl);
+                        productImageUrls[relatedProduct.ProductId] = imageUrl;
+                    }
+                }
             }
         }
         catch (Exception ex)

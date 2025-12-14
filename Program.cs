@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using BlazorApp;
 using BlazorApp.Services;
+using BlazorApp.Services.Interface;
 using Blazored.LocalStorage;
 
 
@@ -26,4 +27,10 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPromotionService, PromotionService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IS3ImageService>(sp => 
+{
+    var httpClient = sp.GetRequiredService<HttpClient>();
+    var config = sp.GetRequiredService<IConfiguration>();
+    return new S3ImageService(config, httpClient);
+});
 await builder.Build().RunAsync();

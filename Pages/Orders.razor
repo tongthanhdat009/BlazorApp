@@ -2,8 +2,10 @@
 @layout CustomerLayout
 @using BlazorApp.Services
 @using BlazorApp.Dto
+@using BlazorApp.Services.Interface
 @using Microsoft.JSInterop
 @inject IOrderService OrderService
+@inject IS3ImageService S3ImageService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
@@ -180,16 +182,18 @@
                         {
                             <div class="order-item">
                                 <div class="item-image">
-                                    @* @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                    @if (item.ProductId.HasValue && productImageUrls.ContainsKey(item.ProductId.Value))
                                     {
-                                        <img src="@item.ImageUrl" alt="@item.ProductName" />
+                                        <img src="@productImageUrls[item.ProductId.Value]" 
+                                             alt="@item.ProductName" 
+                                             style="width: 100%; height: 100%; object-fit: cover;" />
                                     }
                                     else
-                                    { *@
+                                    {
                                         <div class="no-image">
                                             <i class="bi bi-image"></i>
                                         </div>
-                                    @* } *@
+                                    }
                                 </div>
 
                                 <div class="item-info">
@@ -984,9 +988,10 @@
 
 @code {
     // LOGIC MAIN
-    private List<OrderDto> orders = new();
-    private List<OrderDto> filteredOrders = new();
-    private List<OrderDto> paginatedOrders = new();
+    private List<OrderWithDetailsDto> orders = new();
+    private List<OrderWithDetailsDto> filteredOrders = new();
+    private List<OrderWithDetailsDto> paginatedOrders = new();
+    private Dictionary<int, string> productImageUrls = new();
     private bool isLoading = true;
     private string? selectedCategoryName = null;
     private string searchKeyword = "";
@@ -1002,14 +1007,46 @@
         isLoading = true;
         try
         {
-            orders = await OrderService.GetOnlineOrdersByCustomerIdAsync();
+            var ordersDto = await OrderService.GetOnlineOrdersByCustomerIdAsync();
+            orders = ordersDto.Select(o => new OrderWithDetailsDto
+            {
+                OrderId = o.OrderId,
+                CustomerId = o.CustomerId,
+                UserId = o.UserId,
+                PromoId = o.PromoId,
+                OrderDate = o.OrderDate,
+                PayStatus = o.PayStatus,
+                OrderStatus = o.OrderStatus,
+                TotalAmount = o.TotalAmount,
+                DiscountAmount = o.DiscountAmount,
+                OrderType = o.OrderType,
+                PaymentMethod = o.PaymentMethod,
+                Name = o.Name,
+                Address = o.Address,
+                Phone = o.Phone,
+                Email = o.Email,
+                OrderItems = new List<OrderItemWithProductDto>()
+            }).ToList();
+            
             foreach (var order in orders)
             {
                 // Gắn chi tiết sản phẩm vào order theo order_id
                 order.OrderItems = (await OrderService
                     .GetOrderItemWithProductAsync(order.OrderId))
                     .ToList();
-
+                
+                // Preload S3 images for order items
+                foreach (var item in order.OrderItems)
+                {
+                    if (item.ProductId.HasValue && !productImageUrls.ContainsKey(item.ProductId.Value))
+                    {
+                        if (!string.IsNullOrEmpty(item.ImageUrl))
+                        {
+                            var imageUrl = await S3ImageService.GetImageUrlAsync(item.ImageUrl);
+                            productImageUrls[item.ProductId.Value] = imageUrl;
+                        }
+                    }
+                }
             }
             filteredOrders = orders;
         }
@@ -1088,10 +1125,10 @@
 
     // LOGIC CHO MODAL XEM CHI TIẾT ĐƠN HÀNG
     private bool isShowDetailModal = false;
-    private OrderDto? selectedOrder = null;
+    private OrderWithDetailsDto? selectedOrder = null;
     private bool isDownloadingPdf = false;
 
-    private void OpenOrderDetail(OrderDto order)
+    private void OpenOrderDetail(OrderWithDetailsDto order)
     {
         selectedOrder = order;
         isShowDetailModal = true;
@@ -1205,7 +1242,7 @@
         CancelSuccess = null;
     }
 
-    public void OpenConfirm(OrderDto order)
+    public void OpenConfirm(OrderWithDetailsDto order)
     {
         selectedOrder = order;
         CancelError = null;

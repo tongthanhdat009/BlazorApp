@@ -2,9 +2,11 @@
 @layout CustomerLayout
 @using BlazorApp.Dto
 @using BlazorApp.Services
+@using BlazorApp.Services.Interface
 @inject IApiService ApiService
 @inject IAuthService AuthService
 @inject IInventoryService InventoryService
+@inject IS3ImageService S3ImageService
 @inject NavigationManager Navigation
 
 <PageTitle>Giỏ hàng</PageTitle>
@@ -80,8 +82,12 @@
                                 var rowClass = isDeleted ? "table-warning" : "";
                                 <tr class="@rowClass">
                                     <td>
-                                        <img src="@(!string.IsNullOrEmpty(item.ImageUrl) ? item.ImageUrl : "/images/no-image.png")"
-                                             width="80" class="rounded shadow-sm" />
+                                        <div style="width: 80px; height: 80px;">
+                                            <ProductImage ImageUrl="@item.ImageUrl"
+                                                        Alt="@item.Product?.ProductName"
+                                                        CssClass="rounded shadow-sm"
+                                                        Style="width: 80px; height: 80px; object-fit: cover;" />
+                                        </div>
                                     </td>
                                     <td class="fw-semibold">
                                         @item.Product?.ProductName

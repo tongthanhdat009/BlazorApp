@@ -1,0 +1,67 @@
+@using BlazorApp.Services.Interface
+@inject IS3ImageService S3ImageService
+
+@if (isLoading)
+{
+    <div class="@GetPlaceholderClass()" style="@GetPlaceholderStyle()">
+        <div class="spinner-border spinner-border-sm text-muted" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrEmpty(imageUrl))
+{
+    <img src="@imageUrl" 
+         alt="@Alt" 
+         class="@CssClass" 
+         style="@Style"
+         @attributes="AdditionalAttributes" 
+         onerror="this.src='@S3ImageService.GetPlaceholderImage()';" />
+}
+else
+{
+    <div class="@GetPlaceholderClass()" style="@GetPlaceholderStyle()">
+        <i class="bi bi-image text-muted" style="font-size: @IconSize;"></i>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? ImageUrl { get; set; }
+
+    [Parameter]
+    public string Alt { get; set; } = "Product Image";
+
+    [Parameter]
+    public string CssClass { get; set; } = "w-100 h-100";
+
+    [Parameter]
+    public string Style { get; set; } = "object-fit: cover;";
+
+    [Parameter]
+    public string IconSize { get; set; } = "4rem";
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? imageUrl;
+    private bool isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        imageUrl = await S3ImageService.GetImageUrlAsync(ImageUrl);
+        isLoading = false;
+    }
+
+    private string GetPlaceholderClass()
+    {
+        return $"d-flex align-items-center justify-content-center {CssClass}";
+    }
+
+    private string GetPlaceholderStyle()
+    {
+        var baseStyle = "background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);";
+        return string.IsNullOrEmpty(Style) ? baseStyle : $"{baseStyle} {Style}";
+    }
+}

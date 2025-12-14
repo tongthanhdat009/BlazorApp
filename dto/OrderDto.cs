@@ -20,6 +20,29 @@ namespace BlazorApp.Dto
         public string? Phone { get; set; }
         public string? Email { get; set; }
         
+        public List<OrderItemDto> OrderItems { get; set; } = new();
+    }
+
+    // For Orders page - uses OrderItemWithProductDto from GetOrderItemWithProductAsync
+    public class OrderWithDetailsDto
+    {
+        public int OrderId { get; set; }
+        public int? CustomerId { get; set; }
+        public int? UserId { get; set; }
+        public int? PromoId { get; set; }
+        public DateTime? OrderDate { get; set; }
+        public string? PayStatus { get; set; }
+        public string? OrderStatus { get; set; }
+        public decimal TotalAmount { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public string? OrderType { get; set; }
+        public string? PaymentMethod { get; set; }
+        
+        public string? Name { get; set; }
+        public string? Address { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+        
         public List<OrderItemWithProductDto> OrderItems { get; set; } = new();
     }
 

@@ -2,8 +2,10 @@
 @layout CustomerLayout
 @using BlazorApp.Services
 @using BlazorApp.Dto
+@using BlazorApp.Services.Interface
 @inject IAuthService AuthService
 @inject IProductService ProductService
+@inject IS3ImageService S3ImageService
 @inject NavigationManager Navigation
 
 <PageTitle>Sản phẩm - Store Manager</PageTitle>
@@ -139,17 +141,11 @@
                 <div class="col">
                     <div class="card border-0 shadow-sm rounded-4 h-100 product-card-hover" @onclick="() => ViewProduct(product.ProductId)" style="cursor: pointer;">
                         <!-- Product Image -->
-                        <div class="position-relative overflow-hidden rounded-top-4" style="height: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-                            @if (!string.IsNullOrEmpty(product.ImageUrl))
-                            {
-                                <img src="@product.ImageUrl" alt="@product.ProductName" class="w-100 h-100" style="object-fit: cover; transition: transform 0.3s ease;" />
-                            }
-                            else
-                            {
-                                <div class="d-flex align-items-center justify-content-center h-100">
-                                    <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
-                                </div>
-                            }
+                        <div class="position-relative overflow-hidden rounded-top-4" style="height: 200px;">
+                            <ProductImage ImageUrl="@product.ImageUrl" 
+                                        Alt="@product.ProductName" 
+                                        CssClass="w-100 h-100" 
+                                        Style="object-fit: cover; transition: transform 0.3s ease;" />
                             @if (product.IsInStock)
                             {
                                 <span class="badge bg-success position-absolute top-0 end-0 m-3 px-3 py-2 rounded-pill">
@@ -345,9 +341,7 @@
             var allProducts = await ProductService.GetAllProductsAsync();
             // Filter out deleted products
             products = allProducts.Where(p => !p.Deleted).ToList();
-            
             categories = await ProductService.GetAllCategoriesAsync();
-            
             // Calculate global min/max prices from available products
             if (products.Any())
             {

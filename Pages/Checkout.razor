@@ -2,11 +2,13 @@
 @layout CustomerLayout
 @using BlazorApp.Dto
 @using BlazorApp.Services
+@using BlazorApp.Services.Interface
 @inject IOrderService OrderService
 @inject IPromotionService PromotionService
 @inject IPaymentService PaymentService
 @inject ICartService CartService
 @inject IAuthService AuthService
+@inject IS3ImageService S3ImageService
 @inject NavigationManager Navigation
 @inject HttpClient Http
 
@@ -67,8 +69,20 @@
                             {
                                 <tr>
                                     <td>
-                                        <img src="@(!string.IsNullOrEmpty(item.ProductName) ? $"/images/{item.ProductName}.png" : "/images/no-image.png")"
-                                             width="60" class="rounded shadow-sm" />
+                                        @if (item.ProductId > 0 && productImageUrls.ContainsKey(item.ProductId))
+                                        {
+                                            <img src="@productImageUrls[item.ProductId]" 
+                                                 alt="@item.ProductName"
+                                                 width="60" 
+                                                 class="rounded shadow-sm" />
+                                        }
+                                        else
+                                        {
+                                            <div class="d-flex align-items-center justify-content-center rounded shadow-sm" 
+                                                 style="width: 60px; height: 60px; background: #f0f0f0;">
+                                                <i class="bi bi-image text-muted"></i>
+                                            </div>
+                                        }
                                     </td>
                                     <td class="fw-semibold">@item.ProductName</td>
                                     <td class="text-success fw-semibold">@item.Price.ToString("N0") đ</td>
@@ -258,6 +272,7 @@
     private bool isApplyingPromo = false;
     private string paymentMethod = "cash";
     private string message = "";
+    private Dictionary<int, string> productImageUrls = new();
 
     private string promoCode = "";
     private int? appliedPromoId = null;
@@ -343,6 +358,19 @@
             {
                 appliedPromoId = order.PromoId;
                 discountAmount = order.DiscountAmount;
+                
+                // Preload S3 image URLs for order items
+                productImageUrls.Clear();
+                foreach (var item in order.OrderItems)
+                {
+                    // OrderItemDto has Product.ImageUrl
+                    var imageKey = item.Product?.ImageUrl;
+                    if (item.ProductId > 0 && !string.IsNullOrEmpty(imageKey))
+                    {
+                        var imageUrl = await S3ImageService.GetImageUrlAsync(imageKey);
+                        productImageUrls[item.ProductId] = imageUrl;
+                    }
+                }
             }
         }
         catch (Exception ex)
