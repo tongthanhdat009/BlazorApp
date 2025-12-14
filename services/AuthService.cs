@@ -14,6 +14,8 @@ namespace BlazorApp.Services
         Task<CustomerInfo?> GetCurrentUserAsync();
         Task<string?> GetTokenAsync();
         Task<bool> IsAuthenticatedAsync();
+        Task<bool> UpdateProfileAsync(UpdateProfileRequest request);
+        Task<bool> ChangePasswordAsync(ChangePasswordRequest request);
         
     }
 
@@ -56,14 +58,11 @@ namespace BlazorApp.Services
                 }
                 else
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"Login failed: {errorContent}");
                     return null;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"Login error: {ex.Message}");
                 return null;
             }
         }
@@ -80,14 +79,11 @@ namespace BlazorApp.Services
                 }
                 else
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"Register failed: {errorContent}");
                     return null;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"Register error: {ex.Message}");
                 return null;
             }
         }
@@ -144,6 +140,87 @@ namespace BlazorApp.Services
             {
                 _httpClient.DefaultRequestHeaders.Authorization = 
                     new AuthenticationHeaderValue("Bearer", token);
+            }
+        }
+
+        public async Task<bool> UpdateProfileAsync(UpdateProfileRequest request)
+        {
+            await SetAuthorizationHeaderAsync();
+            var response = await _httpClient.PutAsJsonAsync("api/customer/auth/profile", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Cập nhật thông tin user trong localStorage
+                var currentUser = await GetCurrentUserAsync();
+                if (currentUser != null)
+                {
+                    if (!string.IsNullOrEmpty(request.Name))
+                        currentUser.Name = request.Name;
+                    if (!string.IsNullOrEmpty(request.Phone))
+                        currentUser.Phone = request.Phone;
+                    if (!string.IsNullOrEmpty(request.Address))
+                        currentUser.Address = request.Address;
+
+                    await _jsRuntime.InvokeVoidAsync("localStorage.setItem", USER_KEY,
+                        JsonSerializer.Serialize(currentUser));
+                }
+                return true;
+            }
+            else
+            {
+                // Đọc error response từ server
+                var errorContent = await response.Content.ReadAsStringAsync();
+                
+                // Parse JSON để lấy message
+                try
+                {
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    var errorResponse = JsonSerializer.Deserialize<ApiResponse>(errorContent, options);
+                    if (errorResponse != null && !string.IsNullOrEmpty(errorResponse.Message))
+                    {
+                        throw new Exception(errorResponse.Message);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Nếu không parse được JSON, throw với content gốc hoặc message mặc định
+                }
+                
+                throw new Exception("Cập nhật thông tin thất bại. Vui lòng thử lại!");
+            }
+        }
+
+        public async Task<bool> ChangePasswordAsync(ChangePasswordRequest request)
+        {
+            await SetAuthorizationHeaderAsync();
+            var response = await _httpClient.PostAsJsonAsync("api/customer/auth/change-password", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return true;
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                
+                // Phân tích lỗi từ server
+                try
+                {
+                    var errorResponse = JsonSerializer.Deserialize<ApiResponse>(errorContent);
+                    if (errorResponse != null && !string.IsNullOrEmpty(errorResponse.Message))
+                    {
+                        throw new Exception(errorResponse.Message);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Nếu không parse được JSON
+                }
+                
+                return false;
             }
         }
 

@@ -1,7 +1,9 @@
 @page "/profile"
 @layout CustomerLayout
 @using BlazorApp.Services
+@using BlazorApp.Dto
 @inject IAuthService AuthService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Trang cá nhân</PageTitle>
 
@@ -12,7 +14,7 @@
             <div class="mb-3">
                 <i class="bi bi-person-circle text-success" style="font-size: 6rem;"></i>
             </div>
-            <h1 class="fw-bold text-dark mb-2">@customerName</h1>
+            <h1 class="fw-bold text-dark mb-2">@customer?.Name</h1>
             <p class="text-muted">Khách hàng</p>
         </div>
     </div>
@@ -24,28 +26,130 @@
                 <i class="bi bi-person-fill text-success me-2"></i>
                 Thông tin cá nhân
             </h4>
-            <div class="row g-4 mb-4">
-                <div class="col-md-6">
-                    <label class="d-block fw-semibold text-muted small mb-2">Họ và tên</label>
-                    <p class="text-dark mb-0">@customerName</p>
+
+            @if (successMessage != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle me-2"></i>@successMessage
+                    <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
                 </div>
-                <div class="col-md-6">
-                    <label class="d-block fw-semibold text-muted small mb-2">Email</label>
-                    <p class="text-dark mb-0">customer@example.com</p>
+            }
+
+            @if (errorMessage != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
+                    <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
                 </div>
-                <div class="col-md-6">
-                    <label class="d-block fw-semibold text-muted small mb-2">Số điện thoại</label>
-                    <p class="text-dark mb-0">0123456789</p>
+            }
+
+            @if (!isEditing)
+            {
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6">
+                        <label class="d-block fw-semibold text-muted small mb-2">Họ và tên</label>
+                        <p class="text-dark mb-0">@customer?.Name</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="d-block fw-semibold text-muted small mb-2">Email</label>
+                        <p class="text-dark mb-0">@customer?.Email</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="d-block fw-semibold text-muted small mb-2">Số điện thoại</label>
+                        <p class="text-dark mb-0">@(customer?.Phone ?? "Chưa cập nhật")</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="d-block fw-semibold text-muted small mb-2">Địa chỉ</label>
+                        <p class="text-dark mb-0">@(customer?.Address ?? "Chưa cập nhật")</p>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="d-block fw-semibold text-muted small mb-2">Địa chỉ</label>
-                    <p class="text-dark mb-0">123 Nguyễn Huệ, Q1, TP.HCM</p>
-                </div>
-            </div>
-            <button class="btn btn-success px-4 py-2 rounded-3 fw-semibold">
-                <i class="bi bi-pencil-square me-2"></i>
-                Chỉnh sửa thông tin
-            </button>
+                <button class="btn btn-success px-4 py-2 rounded-3 fw-semibold" @onclick="StartEdit">
+                    <i class="bi bi-pencil-square me-2"></i>
+                    Chỉnh sửa thông tin
+                </button>
+            }
+            else
+            {
+                <EditForm Model="@updateRequest" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+                    
+                    <!-- Thông tin cá nhân -->
+                    <h5 class="fw-bold text-dark mb-3">
+                        <i class="bi bi-person me-2"></i>
+                        Thông tin cá nhân
+                    </h5>
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted small">Họ và tên</label>
+                            <InputText class="form-control" @bind-Value="updateRequest.Name" placeholder="Nhập họ và tên" />
+                            <ValidationMessage For="@(() => updateRequest.Name)" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted small">Email</label>
+                            <input type="text" class="form-control" value="@customer?.Email" disabled />
+                            <small class="text-muted">Email không thể thay đổi</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted small">Số điện thoại</label>
+                            <InputText class="form-control" @bind-Value="updateRequest.Phone" placeholder="Nhập số điện thoại" />
+                            <ValidationMessage For="@(() => updateRequest.Phone)" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-muted small">Địa chỉ</label>
+                            <InputText class="form-control" @bind-Value="updateRequest.Address" placeholder="Nhập địa chỉ" />
+                            <ValidationMessage For="@(() => updateRequest.Address)" />
+                        </div>
+                    </div>
+
+                    <!-- Đổi mật khẩu -->
+                    <div class="border-top pt-4 mb-4">
+                        <h5 class="fw-bold text-dark mb-3">
+                            <i class="bi bi-shield-lock me-2"></i>
+                            Đổi mật khẩu
+                        </h5>
+                        <p class="text-muted small mb-3">Để thay đổi mật khẩu, vui lòng nhập đầy đủ các trường bên dưới. Nếu không muốn đổi mật khẩu, để trống các trường này.</p>
+                        <div class="row g-4">
+                            <div class="col-md-12">
+                                <label class="form-label fw-semibold text-muted small">Mật khẩu hiện tại</label>
+                                <InputText type="password" class="form-control" @bind-Value="changePasswordRequest.OldPassword" placeholder="Nhập mật khẩu hiện tại" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-muted small">Mật khẩu mới</label>
+                                <InputText type="password" class="form-control" @bind-Value="changePasswordRequest.NewPassword" placeholder="Nhập mật khẩu mới" />
+                                <small class="text-muted">Mật khẩu phải có ít nhất 6 ký tự</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-muted small">Xác nhận mật khẩu mới</label>
+                                <InputText type="password" class="form-control" @bind-Value="confirmPassword" placeholder="Nhập lại mật khẩu mới" />
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(passwordError))
+                        {
+                            <div class="alert alert-danger mt-3 mb-0">
+                                <i class="bi bi-exclamation-circle me-2"></i>@passwordError
+                            </div>
+                        }
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success px-4 py-2 rounded-3 fw-semibold" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-lg me-2"></i>
+                            }
+                            Lưu thay đổi
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary px-4 py-2 rounded-3 fw-semibold" @onclick="CancelEdit" disabled="@isLoading">
+                            <i class="bi bi-x-lg me-2"></i>
+                            Hủy
+                        </button>
+                    </div>
+                </EditForm>
+            }
         </div>
     </div>
 </div>
@@ -66,14 +170,159 @@
 </style>
 
 @code {
-    private string customerName = "Khách hàng";
+    private CustomerInfo? customer;
+    private UpdateProfileRequest updateRequest = new();
+    private ChangePasswordRequest changePasswordRequest = new();
+    private string confirmPassword = string.Empty;
+    private bool isEditing = false;
+    private bool isLoading = false;
+    private string? successMessage;
+    private string? errorMessage;
+    private string? passwordError;
 
     protected override async Task OnInitializedAsync()
     {
-        var user = await AuthService.GetCurrentUserAsync();
-        if (user != null)
+        customer = await AuthService.GetCurrentUserAsync();
+    }
+
+    private void StartEdit()
+    {
+        if (customer != null)
         {
-            customerName = user.Name ?? "Khách hàng";
+            updateRequest = new UpdateProfileRequest
+            {
+                Name = customer.Name,
+                Phone = customer.Phone,
+                Address = customer.Address
+            };
+            changePasswordRequest = new();
+            confirmPassword = string.Empty;
+            isEditing = true;
+            successMessage = null;
+            errorMessage = null;
+            passwordError = null;
+        }
+    }
+
+    private void CancelEdit()
+    {
+        isEditing = false;
+        updateRequest = new();
+        changePasswordRequest = new();
+        confirmPassword = string.Empty;
+        successMessage = null;
+        errorMessage = null;
+        passwordError = null;
+    }
+
+    private async Task HandleSubmit()
+    {
+        isLoading = true;
+        successMessage = null;
+        errorMessage = null;
+        passwordError = null;
+
+        try
+        {
+            // Kiểm tra nếu người dùng muốn đổi mật khẩu
+            bool isChangingPassword = !string.IsNullOrEmpty(changePasswordRequest.OldPassword) ||
+                                     !string.IsNullOrEmpty(changePasswordRequest.NewPassword) ||
+                                     !string.IsNullOrEmpty(confirmPassword);
+
+            if (isChangingPassword)
+            {
+                // Validate password fields
+                if (string.IsNullOrEmpty(changePasswordRequest.OldPassword))
+                {
+                    passwordError = "Vui lòng nhập mật khẩu hiện tại";
+                    isLoading = false;
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(changePasswordRequest.NewPassword))
+                {
+                    passwordError = "Vui lòng nhập mật khẩu mới";
+                    isLoading = false;
+                    return;
+                }
+
+                if (changePasswordRequest.NewPassword.Length < 6)
+                {
+                    passwordError = "Mật khẩu mới phải có ít nhất 6 ký tự";
+                    isLoading = false;
+                    return;
+                }
+
+                if (changePasswordRequest.NewPassword != confirmPassword)
+                {
+                    passwordError = "Mật khẩu mới và xác nhận mật khẩu không khớp";
+                    isLoading = false;
+                    return;
+                }
+
+                // Thực hiện đổi mật khẩu
+                try
+                {
+                    var passwordResult = await AuthService.ChangePasswordAsync(changePasswordRequest);
+                    if (!passwordResult)
+                    {
+                        passwordError = "Đổi mật khẩu thất bại. Mật khẩu hiện tại không đúng!";
+                        isLoading = false;
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    passwordError = ex.Message;
+                    isLoading = false;
+                    return;
+                }
+            }
+
+            // Cập nhật thông tin cá nhân
+            try
+            {
+                var result = await AuthService.UpdateProfileAsync(updateRequest);
+
+                if (result)
+                {
+                    // Cập nhật thông tin customer hiển thị
+                    customer = await AuthService.GetCurrentUserAsync();
+                    isEditing = false;
+
+                    if (isChangingPassword)
+                    {
+                        successMessage = "Cập nhật thông tin và đổi mật khẩu thành công!";
+                    }
+                    else
+                    {
+                        successMessage = "Cập nhật thông tin thành công!";
+                    }
+
+                    // Tự động ẩn thông báo sau 3 giây
+                    await Task.Delay(3000);
+                    successMessage = null;
+                    StateHasChanged();
+                }
+                else
+                {
+                    errorMessage = "Cập nhật thông tin thất bại. Vui lòng thử lại!";
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                isLoading = false;
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 }
