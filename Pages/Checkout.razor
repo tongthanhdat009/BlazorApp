@@ -228,11 +228,85 @@
 
         <!-- Total & Checkout -->
         <div class="card border-0 shadow-sm rounded-4 mb-4">
+                @if (validationResponse != null && !validationResponse.IsValid)
+                {
+                    <div class="alert alert-danger border-0 shadow-sm mt-3 mb-0">
+                        <h6 class="alert-heading fw-bold">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Không thể thanh toán
+                        </h6>
+                        <hr class="my-2" />
+                        
+                        @if (validationResponse.PriceChangedProducts.Any())
+                        {
+                            <div class="mb-3">
+                                <strong><i class="bi bi-tag me-2"></i>Giá sản phẩm đã thay đổi:</strong>
+                                <ul class="mb-0 mt-1">
+                                    @foreach (var product in validationResponse.PriceChangedProducts)
+                                    {
+                                        <li>
+                                            <strong>@product.ProductName:</strong> 
+                                            <span class="text-decoration-line-through">@product.CartPrice.ToString("N0")đ</span> 
+                                            → <span class="text-success fw-bold">@product.CurrentPrice.ToString("N0")đ</span>
+                                        </li>
+                                    }
+                                </ul>
+                                <small class="text-muted">Vui lòng cập nhật giỏ hàng để tiếp tục</small>
+                            </div>
+                        }
+                        
+                        @if (validationResponse.OutOfStockProducts.Any())
+                        {
+                            <div class="mb-3">
+                                <strong><i class="bi bi-box-seam me-2"></i>Sản phẩm không đủ hàng:</strong>
+                                <ul class="mb-0 mt-1">
+                                    @foreach (var product in validationResponse.OutOfStockProducts)
+                                    {
+                                        <li>
+                                            <strong>@product.ProductName:</strong> 
+                                            Chỉ còn <span class="text-danger fw-bold">@product.AvailableQuantity</span> 
+                                            (yêu cầu: @product.RequestedQuantity)
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                        
+                        @if (validationResponse.DeletedProducts.Any())
+                        {
+                            <div class="mb-3">
+                                <strong><i class="bi bi-trash me-2"></i>Sản phẩm đã ngừng kinh doanh:</strong>
+                                <ul class="mb-0 mt-1">
+                                    @foreach (var product in validationResponse.DeletedProducts)
+                                    {
+                                        <li><strong>@product.ProductName</strong> (SL: @product.Quantity)</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                        
+                        @if (validationResponse.PromotionValidation != null && !validationResponse.PromotionValidation.IsValid)
+                        {
+                            <div class="mb-0">
+                                <strong><i class="bi bi-ticket-perforated me-2"></i>Mã khuyến mãi:</strong>
+                                <div class="mt-1 text-danger">@validationResponse.PromotionValidation.Message</div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(message))
+                {
+                    <div class="alert alert-info border-0 shadow-sm mb-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        @message
+                    </div>
+                }
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h4 class="mb-0 fw-bold text-dark">Tổng cần thanh toán:</h4>
                     <h2 class="mb-0 fw-bold text-success">@finalAmount.ToString("N0") đ</h2>
                 </div>
+
 
                 <div class="d-flex gap-2">
                     <button class="btn btn-outline-secondary btn-lg flex-fill" @onclick="CancelCheckout" disabled="@isPaying">
@@ -252,14 +326,6 @@
                         }
                     </button>
                 </div>
-
-                @if (!string.IsNullOrEmpty(message))
-                {
-                    <div class="alert alert-info border-0 shadow-sm mt-3 mb-0">
-                        <i class="bi bi-info-circle me-2"></i>
-                        @message
-                    </div>
-                }
             </div>
         </div>
     }
@@ -273,6 +339,7 @@
     private string paymentMethod = "cash";
     private string message = "";
     private Dictionary<int, string> productImageUrls = new();
+    private ValidateCheckoutResponse? validationResponse = null;
 
     private string promoCode = "";
     private int? appliedPromoId = null;
@@ -443,9 +510,25 @@
 
         isPaying = true;
         message = "";
+        validationResponse = null;
 
         try
         {
+            // Validate giỏ hàng trước khi thanh toán
+            var validationRequest = new ValidateCheckoutRequest
+            {
+                PromoCode = promoCode
+            };
+
+            validationResponse = await CartService.ValidateCheckoutAsync(validationRequest);
+            
+            if (validationResponse == null || !validationResponse.IsValid)
+            {
+                // Hiển thị lỗi validation chi tiết qua validationResponse
+                isPaying = false;
+                return;
+            }
+
             // Nếu chọn VNPay, tạo URL thanh toán và redirect
             if (paymentMethod == "vnpay")
             {

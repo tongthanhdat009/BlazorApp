@@ -45,5 +45,12 @@ namespace BlazorApp.Services
         {
             return await _api.DeleteAsync("api/customer/cart");
         }
+
+        // POST api/customer/cart/validate-checkout
+        public async Task<ValidateCheckoutResponse?> ValidateCheckoutAsync(ValidateCheckoutRequest request)
+        {
+            return await _api.PostAsync<ValidateCheckoutRequest, ValidateCheckoutResponse>(
+                "api/customer/cart/validate-checkout", request);
+        }
     }
 }

@@ -9,5 +9,6 @@ namespace BlazorApp.Services
         Task<bool> UpdateQuantityAsync(int productId, int quantity);
         Task<bool> RemoveItemAsync(int productId);
         Task<bool> ClearCartAsync();
+        Task<ValidateCheckoutResponse?> ValidateCheckoutAsync(ValidateCheckoutRequest request);
     }
 }
