@@ -1,7 +1,14 @@
 @inherits LayoutComponentBase
 @using BlazorApp.Services
+@using BlazorApp.Dto
+@using BlazorApp.Components
 @inject IAuthService AuthService
+@inject IApiService ApiService
+@inject ICartStateService CartStateService
 @inject NavigationManager Navigation
+@implements IDisposable
+
+<Toast />
 
 <div class="d-flex flex-column min-vh-100 christmas-theme">
     <!-- Snowflakes -->
@@ -136,9 +143,11 @@
     private string customerEmail = string.Empty;
     private int cartItemCount = 0;
     private bool showUserMenu = false;
+    private int? currentCustomerId;
 
     protected override async Task OnInitializedAsync()
     {
+        CartStateService.OnCartChanged += HandleCartChanged;
         await CheckAuthStatus();
     }
 
@@ -151,6 +160,15 @@
         }
     }
 
+    private async void HandleCartChanged()
+    {
+        if (currentCustomerId.HasValue)
+        {
+            await LoadCartCount(currentCustomerId.Value);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     private async Task CheckAuthStatus()
     {
         isAuthenticated = await AuthService.IsAuthenticatedAsync();
@@ -160,8 +178,32 @@
             var user = await AuthService.GetCurrentUserAsync();
             customerName = user?.Name ?? "Khách hàng";
             customerEmail = user?.Email ?? "customer@example.com";
+            
+            // Load cart item count
+            if (user != null)
+            {
+                currentCustomerId = user.CustomerId;
+                await LoadCartCount(user.CustomerId);
+            }
+        }
+    }
+
+    private async Task LoadCartCount(int customerId)
+    {
+        try
+        {
+            var cartItems = await ApiService.GetAsync<List<CartItemDto>>($"api/cart/{customerId}/items");
+            cartItemCount = cartItems?.Count ?? 0;
+        }
+        catch
+        {
             cartItemCount = 0;
         }
+    }
+
+    public void Dispose()
+    {
+        CartStateService.OnCartChanged -= HandleCartChanged;
     }
 
     private void ToggleUserMenu()

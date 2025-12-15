@@ -3,6 +3,7 @@
 @using BlazorApp.Dto
 @using BlazorApp.Services
 @inject IAuthService AuthService
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 
 <div class="container">
@@ -164,19 +165,19 @@
 
         if (registerRequest.Password != confirmPassword)
         {
-            errorMessage = "Mật khẩu xác nhận không khớp!";
+            ToastService.ShowError("Mật khẩu xác nhận không khớp!");
             return;
         }
 
         if (registerRequest.Password.Length < 6)
         {
-            errorMessage = "Mật khẩu phải có ít nhất 6 ký tự!";
+            ToastService.ShowError("Mật khẩu phải có ít nhất 6 ký tự!");
             return;
         }
 
         if (!agreeTerms)
         {
-            errorMessage = "Vui lòng đồng ý với điều khoản dịch vụ!";
+            ToastService.ShowWarning("Vui lòng đồng ý với điều khoản dịch vụ!");
             return;
         }
 
@@ -188,17 +189,18 @@
 
             if (response != null && response.Customer != null)
             {
+                ToastService.ShowSuccess("Đăng ký thành công! Vui lòng đăng nhập.");
                 // Chuyển đến trang login với thông báo đăng ký thành công
                 Navigation.NavigateTo("/login?registered=true");
             }
             else
             {
-                errorMessage = "Đăng ký thất bại! Email có thể đã được sử dụng.";
+                ToastService.ShowError("Đăng ký thất bại! Email có thể đã được sử dụng.");
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Có lỗi xảy ra: {ex.Message}";
+            ToastService.ShowError($"Có lỗi xảy ra: {ex.Message}");
         }
         finally
         {

@@ -8,6 +8,7 @@
 @inject IPaymentService PaymentService
 @inject ICartService CartService
 @inject IAuthService AuthService
+@inject IApiService ApiService
 @inject IS3ImageService S3ImageService
 @inject NavigationManager Navigation
 @inject HttpClient Http
@@ -332,6 +333,9 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "items")]
+    public string? SelectedItemsParam { get; set; }
+    
     private OrderDto? order;
     private bool isLoading = true;
     private bool isPaying = false;
@@ -340,6 +344,7 @@
     private string message = "";
     private Dictionary<int, string> productImageUrls = new();
     private ValidateCheckoutResponse? validationResponse = null;
+    private List<int> selectedProductIds = new();
 
     private string promoCode = "";
     private int? appliedPromoId = null;
@@ -366,6 +371,17 @@
         }
 
         currentUser = user;
+        
+        // Parse selected product IDs from query parameter
+        if (!string.IsNullOrEmpty(SelectedItemsParam))
+        {
+            selectedProductIds = SelectedItemsParam
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => int.TryParse(s, out int id) ? id : 0)
+                .Where(id => id > 0)
+                .ToList();
+        }
+        
         await LoadOrderFromCart();
     }
 
@@ -414,11 +430,23 @@
                 PaymentMethod = paymentMethod,
                 PromoId = appliedPromoId,
                 PromoCode = promoCode,
-                DiscountAmount = discountAmount
+                DiscountAmount = discountAmount,
+                SelectedProductIds = selectedProductIds.Any() ? selectedProductIds : null
             };
 
             // Use preview to avoid creating/persisting order and clearing cart
             order = await OrderService.PreviewOrderFromCartAsync(request);
+
+            // Filter order items to only include selected products if specified
+            if (order != null && selectedProductIds.Any())
+            {
+                order.OrderItems = order.OrderItems
+                    .Where(item => selectedProductIds.Contains(item.ProductId))
+                    .ToList();
+                
+                // Recalculate total for selected items only
+                order.TotalAmount = order.OrderItems.Sum(item => item.Subtotal);
+            }
 
             // Cập nhật thông tin promo/discount theo preview trả về
             if (order != null)
@@ -540,7 +568,8 @@
                     CustomerName = customerName,
                     CustomerPhone = customerPhone,
                     CustomerEmail = customerEmail,
-                    CustomerAddress = customerAddress
+                    CustomerAddress = customerAddress,
+                    SelectedProductIds = selectedProductIds.Any() ? selectedProductIds : null
                 };
 
                 var createdOrder = await OrderService.CheckoutFromCartAsync(request);
@@ -581,7 +610,8 @@
                     CustomerName = customerName,
                     CustomerPhone = customerPhone,
                     CustomerEmail = customerEmail,
-                    CustomerAddress = customerAddress
+                    CustomerAddress = customerAddress,
+                    SelectedProductIds = selectedProductIds.Any() ? selectedProductIds : null
                 };
 
                 try

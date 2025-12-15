@@ -3,6 +3,7 @@
 @using BlazorApp.Services
 @using BlazorApp.Dto
 @inject IAuthService AuthService
+@inject IToastService ToastService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Trang cá nhân</PageTitle>
@@ -27,21 +28,7 @@
                 Thông tin cá nhân
             </h4>
 
-            @if (successMessage != null)
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="bi bi-check-circle me-2"></i>@successMessage
-                    <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
-                </div>
-            }
 
-            @if (errorMessage != null)
-            {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
-                    <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
-                </div>
-            }
 
             @if (!isEditing)
             {
@@ -176,8 +163,7 @@
     private string confirmPassword = string.Empty;
     private bool isEditing = false;
     private bool isLoading = false;
-    private string? successMessage;
-    private string? errorMessage;
+
     private string? passwordError;
 
     protected override async Task OnInitializedAsync()
@@ -198,8 +184,6 @@
             changePasswordRequest = new();
             confirmPassword = string.Empty;
             isEditing = true;
-            successMessage = null;
-            errorMessage = null;
             passwordError = null;
         }
     }
@@ -210,16 +194,12 @@
         updateRequest = new();
         changePasswordRequest = new();
         confirmPassword = string.Empty;
-        successMessage = null;
-        errorMessage = null;
         passwordError = null;
     }
 
     private async Task HandleSubmit()
     {
         isLoading = true;
-        successMessage = null;
-        errorMessage = null;
         passwordError = null;
 
         try
@@ -292,33 +272,28 @@
 
                     if (isChangingPassword)
                     {
-                        successMessage = "Cập nhật thông tin và đổi mật khẩu thành công!";
+                        ToastService.ShowSuccess("Cập nhật thông tin và đổi mật khẩu thành công!");
                     }
                     else
                     {
-                        successMessage = "Cập nhật thông tin thành công!";
+                        ToastService.ShowSuccess("Cập nhật thông tin thành công!");
                     }
-
-                    // Tự động ẩn thông báo sau 3 giây
-                    await Task.Delay(3000);
-                    successMessage = null;
-                    StateHasChanged();
                 }
                 else
                 {
-                    errorMessage = "Cập nhật thông tin thất bại. Vui lòng thử lại!";
+                    ToastService.ShowError("Cập nhật thông tin thất bại. Vui lòng thử lại!");
                 }
             }
             catch (Exception ex)
             {
-                errorMessage = ex.Message;
+                ToastService.ShowError(ex.Message);
                 isLoading = false;
                 return;
             }
         }
         catch (Exception ex)
         {
-            errorMessage = ex.Message;
+            ToastService.ShowError(ex.Message);
         }
         finally
         {

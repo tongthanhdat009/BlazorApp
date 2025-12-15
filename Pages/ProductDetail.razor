@@ -7,6 +7,8 @@
 @inject IAuthService AuthService
 @inject IProductService ProductService
 @inject IS3ImageService S3ImageService
+@inject IToastService ToastService
+@inject ICartStateService CartStateService
 @inject NavigationManager Navigation
 
 <PageTitle>@(product?.ProductName ?? "Chi tiết sản phẩm") - Store Manager</PageTitle>
@@ -366,10 +368,21 @@
 
     int customerId = currentUser.CustomerId;
 
-    var body = new { ProductId = ProductId, Quantity = 1 };
-    await ApiService.PostAsync<object, object>($"api/cart/{customerId}/items", body);
-
-    Navigation.NavigateTo("/cart");
+    try
+    {
+        var body = new { ProductId = ProductId, Quantity = 1 };
+        await ApiService.PostAsync<object, object>($"api/cart/{customerId}/items", body);
+        
+        // Notify cart changed to update badge
+        CartStateService.NotifyCartChanged();
+        
+        // Show success toast and stay on page
+        ToastService.ShowSuccess($"Đã thêm {product?.ProductName} vào giỏ hàng!", "Thêm vào giỏ hàng");
+    }
+    catch (Exception ex)
+    {
+        ToastService.ShowError($"Không thể thêm sản phẩm: {ex.Message}", "Lỗi");
+    }
 }
 
 private async Task HandleBuyNow()
@@ -385,10 +398,18 @@ private async Task HandleBuyNow()
 
     int customerId = currentUser.CustomerId;
 
-    var body = new { ProductId = ProductId, Quantity = 1 };
-    await ApiService.PostAsync<object, object>($"api/cart/{customerId}/items", body);
-
-    Navigation.NavigateTo("/checkout");
+    try
+    {
+        var body = new { ProductId = ProductId, Quantity = 1, IsSelected = true };
+        await ApiService.PostAsync<object, object>($"api/cart/{customerId}/items", body);
+        
+        // Navigate to cart with selected product
+        Navigation.NavigateTo($"/cart?selected={ProductId}");
+    }
+    catch (Exception ex)
+    {
+        ToastService.ShowError($"Không thể thêm sản phẩm: {ex.Message}", "Lỗi");
+    }
 }
 
 

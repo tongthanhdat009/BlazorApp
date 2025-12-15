@@ -3,6 +3,7 @@
 @using BlazorApp.Dto
 @using BlazorApp.Services
 @inject IAuthService AuthService
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 
 <div class="container">
@@ -122,7 +123,7 @@
 
         if (JustRegistered)
         {
-            successMessage = "Đăng ký thành công! Vui lòng đăng nhập.";
+            ToastService.ShowSuccess("Đăng ký thành công! Vui lòng đăng nhập.");
         }
     }
 
@@ -143,7 +144,7 @@
 
             if (response != null && !string.IsNullOrEmpty(response.Token))
             {
-                successMessage = "Đăng nhập thành công! Đang chuyển hướng...";
+                ToastService.ShowSuccess("Đăng nhập thành công! Đang chuyển hướng...");
                 await Task.Delay(1000);
                 
                 // Nếu có returnUrl thì quay lại trang đó, không thì về trang chủ
@@ -152,12 +153,12 @@
             }
             else
             {
-                errorMessage = "Email hoặc mật khẩu không đúng!";
+                ToastService.ShowError("Email hoặc mật khẩu không đúng!");
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Có lỗi xảy ra: {ex.Message}";
+            ToastService.ShowError($"Có lỗi xảy ra: {ex.Message}");
         }
         finally
         {

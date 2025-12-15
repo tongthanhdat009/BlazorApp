@@ -7,6 +7,7 @@
 @inject IAuthService AuthService
 @inject IInventoryService InventoryService
 @inject IS3ImageService S3ImageService
+@inject IToastService ToastService
 @inject NavigationManager Navigation
 
 <PageTitle>Giỏ hàng</PageTitle>
@@ -67,6 +68,13 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
+                                <th style="width:50px" class="border-0">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               checked="@IsAllSelected()" 
+                                               @onchange="ToggleSelectAll" />
+                                    </div>
+                                </th>
                                 <th style="width:100px" class="border-0">Hình</th>
                                 <th class="border-0">Sản phẩm</th>
                                 <th class="border-0">Giá</th>
@@ -81,6 +89,14 @@
                                 var isDeleted = deletedProducts.Any(p => p.ProductId == item.ProductId);
                                 var rowClass = isDeleted ? "table-warning" : "";
                                 <tr class="@rowClass">
+                                    <td>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   checked="@selectedItems.Contains(item.ProductId)"
+                                                   disabled="@isDeleted"
+                                                   @onchange="() => ToggleItemSelection(item.ProductId)" />
+                                        </div>
+                                    </td>
                                     <td>
                                         <div style="width: 80px; height: 80px;">
                                             <ProductImage ImageUrl="@item.ImageUrl"
@@ -126,9 +142,12 @@
 
         <div class="card border-1 shadow-sm rounded-4 mt-4">
             <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted">Đã chọn @selectedItems.Count sản phẩm</span>
+                </div>
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h3 class="mb-0 fw-bold text-dark">Tổng cộng:</h3>
-                    <h2 class="mb-0 fw-bold text-success">@total.ToString("N0") đ</h2>
+                    <h2 class="mb-0 fw-bold text-success">@selectedTotal.ToString("N0") đ</h2>
                 </div>
                 
                 @if (!string.IsNullOrEmpty(checkoutError))
@@ -144,18 +163,26 @@
                     </div>
                 }
                 
-                <button class="btn btn-success btn-lg w-100 py-3 mt-3 fw-bold" @onclick="HandleCheckoutClick" disabled="@isValidating">
-                    @if (isValidating)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                        <span>Đang kiểm tra tồn kho...</span>
-                    }
-                    else
-                    {
-                        <i class="bi bi-credit-card me-2"></i>
-                        <span>Tiến hành thanh toán</span>
-                    }
-                </button>
+                <div class="d-flex gap-3 mt-3">
+                    <a href="/products" class="btn btn-outline-success btn-lg flex-grow-1 py-3 fw-bold">
+                        <i class="bi bi-arrow-left me-2"></i>
+                        <span>Tiếp tục mua hàng</span>
+                    </a>
+                    <button class="btn btn-success btn-lg flex-grow-1 py-3 fw-bold" 
+                            @onclick="HandleCheckoutClick" 
+                            disabled="@(isValidating || !selectedItems.Any())">
+                        @if (isValidating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <span>Đang kiểm tra tồn kho...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-credit-card me-2"></i>
+                            <span>Tiến hành thanh toán (@selectedItems.Count)</span>
+                        }
+                    </button>
+                </div>
             </div>
         </div>
     }
@@ -191,10 +218,15 @@
 </style>
 
 @code {
+    [SupplyParameterFromQuery(Name = "selected")]
+    public string? SelectedProductId { get; set; }
+    
     List<CartItemDto> items = new();
+    HashSet<int> selectedItems = new();
     bool isLoading = true;
     bool isValidating = false;
     decimal total = 0m;
+    decimal selectedTotal = 0m;
     int customerId;
     string? checkoutError;
     List<DeletedProduct> deletedProducts = new();
@@ -223,7 +255,68 @@
         // Kiễm tra sản phẩm đã bị xóa mềm
         await CheckDeletedProducts();
         
+        // Select all items by default (except deleted ones)
+        selectedItems = items
+            .Where(i => !deletedProducts.Any(d => d.ProductId == i.ProductId))
+            .Select(i => i.ProductId)
+            .ToHashSet();
+        
+        // If coming from "Buy Now", select only that product
+        if (!string.IsNullOrEmpty(SelectedProductId) && int.TryParse(SelectedProductId, out int selectedId))
+        {
+            if (items.Any(i => i.ProductId == selectedId))
+            {
+                selectedItems.Clear();
+                selectedItems.Add(selectedId);
+            }
+        }
+        
+        CalculateSelectedTotal();
+        
         isLoading = false;
+    }
+    
+    private void CalculateSelectedTotal()
+    {
+        selectedTotal = items
+            .Where(i => selectedItems.Contains(i.ProductId))
+            .Sum(i => i.Subtotal);
+    }
+    
+    private bool IsAllSelected()
+    {
+        var selectableItems = items.Where(i => !deletedProducts.Any(d => d.ProductId == i.ProductId)).ToList();
+        return selectableItems.Any() && selectableItems.All(i => selectedItems.Contains(i.ProductId));
+    }
+    
+    private void ToggleSelectAll()
+    {
+        var selectableItems = items.Where(i => !deletedProducts.Any(d => d.ProductId == i.ProductId)).ToList();
+        
+        if (IsAllSelected())
+        {
+            selectedItems.Clear();
+        }
+        else
+        {
+            selectedItems = selectableItems.Select(i => i.ProductId).ToHashSet();
+        }
+        
+        CalculateSelectedTotal();
+    }
+    
+    private void ToggleItemSelection(int productId)
+    {
+        if (selectedItems.Contains(productId))
+        {
+            selectedItems.Remove(productId);
+        }
+        else
+        {
+            selectedItems.Add(productId);
+        }
+        
+        CalculateSelectedTotal();
     }
 
     private async Task CheckDeletedProducts()
@@ -262,7 +355,12 @@
         if (newQty < 1) return;
         var body = new { Quantity = newQty };
         await ApiService.PutAsync<object, object>($"api/cart/{customerId}/items/{item.ProductId}", body);
+        
+        // Preserve selected items when reloading
+        var currentSelected = new HashSet<int>(selectedItems);
         await LoadCart();
+        selectedItems = currentSelected.Where(id => items.Any(i => i.ProductId == id)).ToHashSet();
+        CalculateSelectedTotal();
     }
 
     private async Task OnQtyInputChanged(CartItemDto item, string? value)
@@ -277,20 +375,32 @@
     {
         var ok = await ApiService.DeleteAsync($"api/cart/{customerId}/items/{productId}");
         if (ok)
+        {
+            selectedItems.Remove(productId);
             await LoadCart();
+            ToastService.ShowSuccess("Đã xóa sản phẩm khỏi giỏ hàng.");
+        }
     }
 
     private async Task HandleCheckoutClick()
     {
+        if (!selectedItems.Any())
+        {
+            ToastService.ShowWarning("Vui lòng chọn ít nhất một sản phẩm để thanh toán.");
+            return;
+        }
+        
         checkoutError = null;
         isValidating = true;
 
         try
         {
-            // Prepare validation request
+            // Prepare validation request - only for selected items
+            var selectedCartItems = items.Where(i => selectedItems.Contains(i.ProductId)).ToList();
+            
             var request = new ValidateCartStockRequest
             {
-                Items = items.Select(i => new CartItemStockRequest
+                Items = selectedCartItems.Select(i => new CartItemStockRequest
                 {
                     ProductId = i.ProductId,
                     Quantity = i.Quantity
@@ -308,8 +418,9 @@
 
             if (response.IsValid)
             {
-                // Stock is valid, navigate to checkout
-                Navigation.NavigateTo("/checkout");
+                // Stock is valid, navigate to checkout with selected items
+                var selectedIds = string.Join(",", selectedItems);
+                Navigation.NavigateTo($"/checkout?items={selectedIds}");
             }
             else
             {

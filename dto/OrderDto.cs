@@ -79,6 +79,9 @@ namespace BlazorApp.Dto
         public string? CustomerPhone { get; set; }
         public string? CustomerEmail { get; set; }
         public string? CustomerAddress { get; set; }
+        
+        // Selected product IDs for partial checkout (if null/empty, checkout all cart items)
+        public List<int>? SelectedProductIds { get; set; }
     }
 
 
