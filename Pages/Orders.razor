@@ -253,7 +253,10 @@
                                 var nonCancelableStatuses = new[] { "approved", "processing", "shipping", "delivered", "completed" };
                                 bool canCancel = (order.PayStatus == "pending" || order.PayStatus == "paid")
                                     && order.OrderType?.ToLower() == "online"
-                                    && !nonCancelableStatuses.Contains(order.OrderStatus?.ToLower());
+                                    && !nonCancelableStatuses.Contains(order.OrderStatus?.ToLower())
+                                    && !order.HasPendingRefund
+                                    && order.RefundStatus != "pending"
+                                    && order.RefundStatus != "completed";
                             }
                             
                             @if(canCancel)
