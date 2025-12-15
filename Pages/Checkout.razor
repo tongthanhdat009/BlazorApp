@@ -429,11 +429,11 @@
             {
                 PaymentMethod = paymentMethod,
                 PromoId = appliedPromoId,
-                PromoCode = promoCode,
+                PromoCode = !string.IsNullOrEmpty(promoCode) ? promoCode : null,
                 DiscountAmount = discountAmount,
                 SelectedProductIds = selectedProductIds.Any() ? selectedProductIds : null
             };
-
+            Console.WriteLine($"Loading order preview with promoId={appliedPromoId}, promoCode={promoCode}, discount={discountAmount}, selected items: {string.Join(",", selectedProductIds)}");
             // Use preview to avoid creating/persisting order and clearing cart
             order = await OrderService.PreviewOrderFromCartAsync(request);
 
@@ -504,6 +504,7 @@
             {
                 appliedPromoId = result.PromoId;
                 discountAmount = result.DiscountAmount;
+                // Giữ nguyên promoCode để gửi lên backend
                 message = $"Áp dụng thành công! Giảm {discountAmount:N0} đ";
 
                 // Reload preview with PromoId mới
@@ -513,6 +514,7 @@
             {
                 appliedPromoId = null;
                 discountAmount = 0;
+                promoCode = ""; // Reset promo code nếu không hợp lệ
                 message = "Mã promo không hợp lệ hoặc hết hạn";
             }
         }
@@ -565,6 +567,7 @@
                 {
                     PaymentMethod = paymentMethod,
                     PromoId = appliedPromoId,
+                    PromoCode = !string.IsNullOrEmpty(promoCode) ? promoCode : null,
                     CustomerName = customerName,
                     CustomerPhone = customerPhone,
                     CustomerEmail = customerEmail,
@@ -607,6 +610,7 @@
                 {
                     PaymentMethod = paymentMethod,
                     PromoId = appliedPromoId,
+                    PromoCode = !string.IsNullOrEmpty(promoCode) ? promoCode : null,
                     CustomerName = customerName,
                     CustomerPhone = customerPhone,
                     CustomerEmail = customerEmail,

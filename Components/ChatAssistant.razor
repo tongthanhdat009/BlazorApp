@@ -1,0 +1,741 @@
+@using BlazorApp.Dto
+@using BlazorApp.Services
+@using BlazorApp.Services.Interface
+@inject IAiChatService AiChatService
+@inject ICartStateService CartStateService
+@inject IAuthService AuthService
+@inject IS3ImageService S3ImageService
+@inject NavigationManager Navigation
+
+<div class="chat-assistant @(IsOpen ? "open" : "")">
+    @if (IsOpen)
+    {
+        <div class="chat-container">
+            <!-- Header -->
+            <div class="chat-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="chat-avatar">
+                        <i class="bi bi-robot"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-0 text-white">Trợ lý AI</h6>
+                        <small class="text-white-50">Tư vấn nguyên liệu nấu ăn</small>
+                    </div>
+                </div>
+                <button class="btn btn-link text-white p-0" @onclick="Close">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <!-- Messages -->
+            <div class="chat-messages" @ref="messagesContainer">
+                @if (!messages.Any())
+                {
+                    <div class="welcome-message">
+                        <div class="chat-avatar large mx-auto mb-3">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                        <h6>Xin chào! 👋</h6>
+                        <p class="text-muted small mb-3">
+                            Tôi là trợ lý AI tư vấn nguyên liệu. Hãy cho tôi biết bạn muốn nấu món gì, 
+                            tôi sẽ gợi ý nguyên liệu phù hợp có sẵn trong cửa hàng!
+                        </p>
+                        <div class="suggestion-chips">
+                            <button class="chip" @onclick='() => SendQuickMessage("Tôi muốn nấu phở bò")'>
+                                🍜 Nấu phở bò
+                            </button>
+                            <button class="chip" @onclick='() => SendQuickMessage("Gợi ý món ăn với thịt gà")'>
+                                🍗 Món gà
+                            </button>
+                            <button class="chip" @onclick='() => SendQuickMessage("Nguyên liệu làm salad")'>
+                                🥗 Salad
+                            </button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var msg in messages)
+                    {
+                        <div class="message @(msg.IsUser ? "user" : "assistant")">
+                            @if (!msg.IsUser)
+                            {
+                                <div class="message-avatar">
+                                    <i class="bi bi-robot"></i>
+                                </div>
+                            }
+                            <div class="message-content">
+                                <div class="message-text">
+                                    @((MarkupString)FormatMessage(msg.Content))
+                                </div>
+                                
+                                @* Hiển thị sản phẩm gợi ý *@
+                                @if (msg.SuggestedProducts?.Any() == true)
+                                {
+                                    <div class="suggested-products mt-2">
+                                        <small class="text-muted d-block mb-2">
+                                            <i class="bi bi-cart-plus me-1"></i>Sản phẩm gợi ý:
+                                        </small>
+                                        @foreach (var product in msg.SuggestedProducts)
+                                        {
+                                            <div class="product-suggestion-item">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    @if (!string.IsNullOrEmpty(product.ImageUrl))
+                                                    {
+                                                        <img src="@product.ImageUrl" alt="@product.ProductName" 
+                                                             class="product-thumb" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="product-thumb-placeholder">
+                                                            <i class="bi bi-box"></i>
+                                                        </div>
+                                                    }
+                                                    <div class="flex-grow-1">
+                                                        <div class="product-name">@product.ProductName</div>
+                                                        <div class="product-price">
+                                                            @product.Price.ToString("N0")đ/@product.Unit
+                                                        </div>
+                                                    </div>
+                                                    <div class="quantity-control">
+                                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                                @onclick="() => AdjustQuantity(product, -1)">
+                                                            <i class="bi bi-dash"></i>
+                                                        </button>
+                                                        <span class="quantity">@product.SuggestedQuantity</span>
+                                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                                @onclick="() => AdjustQuantity(product, 1)">
+                                                            <i class="bi bi-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                        
+                                        @if (!msg.ActionTaken)
+                                        {
+                                            <div class="action-buttons mt-3">
+                                                <p class="small text-muted mb-2">
+                                                    Bạn có muốn thêm vào giỏ hàng không?
+                                                </p>
+                                                <div class="d-flex gap-2">
+                                                    <button class="btn btn-outline-secondary btn-sm flex-grow-1" 
+                                                            @onclick="() => DeclineProducts(msg)"
+                                                            disabled="@msg.IsProcessing">
+                                                        <i class="bi bi-x-circle me-1"></i>Từ chối
+                                                    </button>
+                                                    <button class="btn btn-success btn-sm flex-grow-1" 
+                                                            @onclick="() => AcceptProducts(msg)"
+                                                            disabled="@msg.IsProcessing">
+                                                        @if (msg.IsProcessing)
+                                                        {
+                                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <i class="bi bi-cart-check me-1"></i>
+                                                        }
+                                                        Chấp nhận
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="action-result mt-2">
+                                                @if (msg.ActionAccepted)
+                                                {
+                                                    <span class="badge bg-success">
+                                                        <i class="bi bi-check-circle me-1"></i>Đã thêm vào giỏ hàng
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">
+                                                        <i class="bi bi-x-circle me-1"></i>Đã bỏ qua
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                @* Hiển thị nguồn context *@
+                                @if (msg.ContextSources?.Any() == true && showContextSources)
+                                {
+                                    <div class="context-sources mt-2">
+                                        <button class="btn btn-link btn-sm p-0 text-muted" 
+                                                @onclick="() => ToggleContextDetails(msg)">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            @(msg.ShowContextDetails ? "Ẩn nguồn" : "Xem nguồn")
+                                        </button>
+                                        @if (msg.ShowContextDetails)
+                                        {
+                                            <div class="context-list mt-1">
+                                                @foreach (var ctx in msg.ContextSources)
+                                                {
+                                                    <small class="d-block text-muted">
+                                                        • @ctx.ProductName - @ctx.Excerpt
+                                                    </small>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                <div class="message-time">
+                                    @msg.Timestamp.ToString("HH:mm")
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+
+                @if (isLoading)
+                {
+                    <div class="message assistant">
+                        <div class="message-avatar">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                        <div class="message-content">
+                            <div class="typing-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Input -->
+            <div class="chat-input">
+                <div class="input-group">
+                    <input type="text" 
+                           class="form-control" 
+                           placeholder="Nhập tin nhắn..." 
+                           @bind="inputMessage"
+                           @bind:event="oninput"
+                           @onkeypress="HandleKeyPress"
+                           disabled="@isLoading" />
+                    <button class="btn btn-success" 
+                            @onclick="SendMessage" 
+                            disabled="@(isLoading || string.IsNullOrWhiteSpace(inputMessage))">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    private string inputMessage = "";
+    private bool isLoading = false;
+    private bool showContextSources = true;
+    private List<ChatMessage> messages = new();
+    private ElementReference messagesContainer;
+
+    private class ChatMessage
+    {
+        public string Content { get; set; } = "";
+        public bool IsUser { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public List<ProductSuggestionDto>? SuggestedProducts { get; set; }
+        public List<ContextSourceDto>? ContextSources { get; set; }
+        public bool ActionTaken { get; set; }
+        public bool ActionAccepted { get; set; }
+        public bool ShowContextDetails { get; set; }
+        public bool IsProcessing { get; set; } = false;
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task SendQuickMessage(string message)
+    {
+        inputMessage = message;
+        await SendMessage();
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(inputMessage))
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(inputMessage) || isLoading) return;
+
+        var userMessage = inputMessage.Trim();
+        inputMessage = "";
+
+        // Thêm tin nhắn user
+        messages.Add(new ChatMessage
+        {
+            Content = userMessage,
+            IsUser = true
+        });
+
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Chuẩn bị history
+            var history = messages
+                .Where(m => !m.IsUser || messages.IndexOf(m) < messages.Count - 1)
+                .TakeLast(6)
+                .Select(m => new ChatMessageDto
+                {
+                    Role = m.IsUser ? "user" : "assistant",
+                    Content = m.Content
+                })
+                .ToList();
+
+            // Gọi AI
+            var request = new AiChatRequestDto
+            {
+                Message = userMessage,
+                History = history
+            };
+
+            var response = await AiChatService.SendMessageAsync(request);
+
+            if (response != null)
+            {
+                // Load ảnh sản phẩm qua S3ImageService
+                if (response.SuggestedProducts != null)
+                {
+                    foreach (var product in response.SuggestedProducts)
+                    {
+                        product.ImageUrl = await S3ImageService.GetImageUrlAsync(product.ImageUrl);
+                    }
+                }
+
+                messages.Add(new ChatMessage
+                {
+                    Content = response.Message,
+                    IsUser = false,
+                    SuggestedProducts = response.SuggestedProducts,
+                    ContextSources = response.ContextSources
+                });
+            }
+            else
+            {
+                messages.Add(new ChatMessage
+                {
+                    Content = "Xin lỗi, tôi không thể xử lý yêu cầu này. Vui lòng thử lại.",
+                    IsUser = false
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chat error: {ex.Message}");
+            messages.Add(new ChatMessage
+            {
+                Content = "Đã xảy ra lỗi. Vui lòng thử lại sau.",
+                IsUser = false
+            });
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void AdjustQuantity(ProductSuggestionDto product, int delta)
+    {
+        product.SuggestedQuantity = Math.Max(1, product.SuggestedQuantity + delta);
+        StateHasChanged();
+    }
+
+    private async Task AcceptProducts(ChatMessage msg)
+    {
+        if (msg.SuggestedProducts == null || !msg.SuggestedProducts.Any()) return;
+
+        // Kiểm tra đăng nhập
+        var isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (!isAuthenticated)
+        {
+            messages.Add(new ChatMessage
+            {
+                Content = "⚠️ Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng.",
+                IsUser = false
+            });
+            StateHasChanged();
+            return;
+        }
+
+        msg.IsProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            var products = msg.SuggestedProducts
+                .Select(p => new AddProductItem
+                {
+                    ProductId = p.ProductId,
+                    Quantity = p.SuggestedQuantity
+                })
+                .ToList();
+
+            var result = await AiChatService.AddSuggestedProductsToCartAsync(products);
+
+            msg.ActionTaken = true;
+            msg.ActionAccepted = true;
+
+            // Notify cart changed
+            CartStateService.NotifyCartChanged();
+
+            // Thêm tin nhắn xác nhận
+            var addedCount = result?.AddedItems?.Count ?? products.Count;
+            messages.Add(new ChatMessage
+            {
+                Content = $"✅ Đã thêm {addedCount} sản phẩm vào giỏ hàng! Bạn có thể xem giỏ hàng hoặc tiếp tục hỏi tôi về các sản phẩm khác.",
+                IsUser = false
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Add to cart error: {ex.Message}");
+            messages.Add(new ChatMessage
+            {
+                Content = "❌ Không thể thêm sản phẩm vào giỏ hàng. Vui lòng thử lại.",
+                IsUser = false
+            });
+        }
+        finally
+        {
+            msg.IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void DeclineProducts(ChatMessage msg)
+    {
+        msg.ActionTaken = true;
+        msg.ActionAccepted = false;
+        
+        messages.Add(new ChatMessage
+        {
+            Content = "Không sao! Bạn có muốn tôi gợi ý món ăn hoặc nguyên liệu khác không?",
+            IsUser = false
+        });
+        
+        StateHasChanged();
+    }
+
+    private void ToggleContextDetails(ChatMessage msg)
+    {
+        msg.ShowContextDetails = !msg.ShowContextDetails;
+        StateHasChanged();
+    }
+
+    private string FormatMessage(string content)
+    {
+        // Convert newlines to <br>
+        return content.Replace("\n", "<br>");
+    }
+}
+
+<style>
+    .chat-assistant {
+        position: fixed;
+        bottom: 100px;
+        right: 20px;
+        z-index: 1050;
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+        pointer-events: none;
+        transition: all 0.3s ease;
+    }
+
+    .chat-assistant.open {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+    }
+
+    .chat-container {
+        width: 380px;
+        max-width: calc(100vw - 40px);
+        height: 550px;
+        max-height: calc(100vh - 150px);
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .chat-header {
+        background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .chat-avatar {
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+    }
+
+    .chat-avatar.large {
+        width: 60px;
+        height: 60px;
+        font-size: 1.8rem;
+        background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        background: #f8f9fa;
+    }
+
+    .welcome-message {
+        text-align: center;
+        padding: 20px;
+    }
+
+    .suggestion-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    .chip {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .chip:hover {
+        background: #198754;
+        color: white;
+        border-color: #198754;
+    }
+
+    .message {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .message.user {
+        flex-direction: row-reverse;
+    }
+
+    .message-avatar {
+        width: 32px;
+        height: 32px;
+        background: #198754;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+
+    .message-content {
+        max-width: 280px;
+    }
+
+    .message-text {
+        background: white;
+        padding: 12px 16px;
+        border-radius: 16px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .message.user .message-text {
+        background: #198754;
+        color: white;
+        border-radius: 16px 16px 4px 16px;
+    }
+
+    .message.assistant .message-text {
+        border-radius: 16px 16px 16px 4px;
+    }
+
+    .message-time {
+        font-size: 0.7rem;
+        color: #6c757d;
+        margin-top: 4px;
+        text-align: right;
+    }
+
+    .message.user .message-time {
+        text-align: left;
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 12px 16px;
+        background: white;
+        border-radius: 16px;
+    }
+
+    .typing-indicator span {
+        width: 8px;
+        height: 8px;
+        background: #adb5bd;
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+    }
+
+    .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+    @@keyframes typing {
+        0%, 60%, 100% { transform: translateY(0); }
+        30% { transform: translateY(-8px); }
+    }
+
+    /* Product suggestions */
+    .suggested-products {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 12px;
+    }
+
+    .product-suggestion-item {
+        background: white;
+        border-radius: 8px;
+        padding: 8px;
+        margin-bottom: 8px;
+    }
+
+    .product-suggestion-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .product-thumb {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+
+    .product-thumb-placeholder {
+        width: 40px;
+        height: 40px;
+        background: #e9ecef;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #adb5bd;
+    }
+
+    .product-name {
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .product-price {
+        font-size: 0.75rem;
+        color: #198754;
+    }
+
+    .quantity-control {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .quantity-control .quantity {
+        min-width: 24px;
+        text-align: center;
+        font-weight: 500;
+    }
+
+    .quantity-control .btn {
+        padding: 2px 6px;
+        font-size: 0.75rem;
+    }
+
+    .action-buttons {
+        border-top: 1px solid #dee2e6;
+        padding-top: 12px;
+    }
+
+    /* Chat input */
+    .chat-input {
+        padding: 12px;
+        background: white;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .chat-input .form-control {
+        border-radius: 20px 0 0 20px;
+        border-right: none;
+    }
+
+    .chat-input .form-control:focus {
+        box-shadow: none;
+        border-color: #198754;
+    }
+
+    .chat-input .btn {
+        border-radius: 0 20px 20px 0;
+        padding: 8px 16px;
+    }
+
+    /* Context sources */
+    .context-sources {
+        font-size: 0.75rem;
+    }
+
+    .context-list {
+        background: white;
+        border-radius: 6px;
+        padding: 8px;
+    }
+
+    /* Responsive */
+    @@media (max-width: 480px) {
+        .chat-assistant {
+            bottom: 80px;
+            right: 10px;
+            left: 10px;
+        }
+
+        .chat-container {
+            width: 100%;
+            height: calc(100vh - 180px);
+        }
+    }
+</style>

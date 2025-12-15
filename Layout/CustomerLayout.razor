@@ -9,6 +9,7 @@
 @implements IDisposable
 
 <Toast />
+<ChatAssistant @bind-IsOpen="isChatOpen" />
 
 <div class="d-flex flex-column min-vh-100 christmas-theme">
     <!-- Snowflakes -->
@@ -135,6 +136,12 @@
             </div>
         </div>
     </footer>
+
+    <!-- Floating Chat Button -->
+    <button class="floating-chat-btn @(isChatOpen ? "hidden" : "")" @onclick="ToggleChat">
+        <i class="bi bi-chat-dots-fill"></i>
+        <span class="chat-btn-tooltip">Trợ lý AI</span>
+    </button>
 </div>
 
 @code {
@@ -144,6 +151,7 @@
     private int cartItemCount = 0;
     private bool showUserMenu = false;
     private int? currentCustomerId;
+    private bool isChatOpen = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -231,6 +239,12 @@
 
         StateHasChanged();
     }
+
+    private void ToggleChat()
+    {
+        isChatOpen = !isChatOpen;
+        StateHasChanged();
+    }
 }
 
 <style>
@@ -314,4 +328,99 @@
     .snowflake:nth-of-type(18) { left: 75%; animation-duration: 15s; animation-delay: 2s; font-size: 24px; }
     .snowflake:nth-of-type(19) { left: 85%; animation-duration: 11s; animation-delay: 0s; font-size: 16px; }
     .snowflake:nth-of-type(20) { left: 95%; animation-duration: 13s; animation-delay: 1s; font-size: 20px; }
+
+    /* Floating Chat Button */
+    .floating-chat-btn {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(25, 135, 84, 0.4);
+        z-index: 1040;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .floating-chat-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(25, 135, 84, 0.5);
+    }
+
+    .floating-chat-btn:hover .chat-btn-tooltip {
+        opacity: 1;
+        transform: translateX(-10px);
+    }
+
+    .floating-chat-btn.hidden {
+        opacity: 0;
+        pointer-events: none;
+        transform: scale(0.8);
+    }
+
+    .chat-btn-tooltip {
+        position: absolute;
+        right: 70px;
+        background: #333;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        opacity: 0;
+        transition: all 0.3s ease;
+        pointer-events: none;
+    }
+
+    .chat-btn-tooltip::after {
+        content: '';
+        position: absolute;
+        right: -6px;
+        top: 50%;
+        transform: translateY(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: transparent transparent transparent #333;
+    }
+
+    /* Pulse animation for chat button */
+    .floating-chat-btn::before {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: inherit;
+        animation: pulse-ring 2s ease-out infinite;
+        z-index: -1;
+    }
+
+    @@keyframes pulse-ring {
+        0% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        100% {
+            transform: scale(1.5);
+            opacity: 0;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .floating-chat-btn {
+            bottom: 16px;
+            right: 16px;
+            width: 50px;
+            height: 50px;
+            font-size: 1.2rem;
+        }
+    }
 </style>

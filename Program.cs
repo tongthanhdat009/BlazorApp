@@ -29,6 +29,7 @@ builder.Services.AddScoped<IPromotionService, PromotionService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IToastService, ToastService>();
 builder.Services.AddSingleton<ICartStateService, CartStateService>();
+builder.Services.AddScoped<IAiChatService, AiChatService>();
 builder.Services.AddScoped<IS3ImageService>(sp => 
 {
     var httpClient = sp.GetRequiredService<HttpClient>();
